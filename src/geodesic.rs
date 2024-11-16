@@ -4,9 +4,9 @@
 use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
+use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH};
 use std::sync;
 
-use crate::internals::constants::{TOL0,TOL1,TOL2,TINY};
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
@@ -36,9 +36,6 @@ pub struct Geodesic {
     _nC4x_: usize,
     maxit1_: u64,
     maxit2_: u64,
-
-    tolb_: f64,
-    xthresh_: f64,
 }
 
 static WGS84_GEOD: sync::OnceLock<Geodesic> = sync::OnceLock::new();
@@ -88,8 +85,6 @@ impl Geodesic {
     pub fn new(a: f64, f: f64) -> Self {
         let maxit1_ = 20;
         let maxit2_ = maxit1_ + geomath::DIGITS + 10;
-        let tolb_ = TOL0 * TOL2;
-        let xthresh_ = 1000.0 * TOL2;
 
         let _f1 = 1.0 - f;
         let _e2 = f * (2.0 - f);
@@ -162,9 +157,6 @@ impl Geodesic {
             _nC4x_,
             maxit1_,
             maxit2_,
-
-            tolb_,
-            xthresh_,
         }
     }
 
@@ -380,7 +372,7 @@ impl Geodesic {
                 lamscale = betscale / cbet1;
                 y = lam12x / lamscale;
             }
-            if y > -TOL1 && x > -1.0 - self.xthresh_ {
+            if y > -TOL1 && x > -1.0 - X_THRESH {
                 if self.f >= 0.0 {
                     salp1 = (-x).min(1.0);
                     calp1 = -(1.0 - geomath::sq(salp1)).sqrt()
@@ -771,8 +763,8 @@ impl Geodesic {
                     calp1 = (calp1a + calp1b) / 2.0;
                     geomath::norm(&mut salp1, &mut calp1);
                     tripn = false;
-                    tripb = (salp1a - salp1).abs() + (calp1a - calp1) < self.tolb_
-                        || (salp1 - salp1b).abs() + (calp1 - calp1b) < self.tolb_;
+                    tripb = (salp1a - salp1).abs() + (calp1a - calp1) < TOL_B
+                        || (salp1 - salp1b).abs() + (calp1 - calp1b) < TOL_B;
                 }
                 let lengthmask = outmask
                     | if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
