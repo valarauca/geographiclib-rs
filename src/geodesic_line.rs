@@ -100,11 +100,6 @@ impl GeodesicLine {
         let _comg1 = _csig1;
         geomath::norm(&mut _ssig1, &mut _csig1);
         let (_k2, eps) = geod.local_curvature(_calp0);
-        /*
-        let _k2 = _calp0.powi(2) * geod._ep2;
-        let eps = _k2 / (2.0 * (1.0 + (1.0 + _k2).sqrt()) + _k2);
-        */
-
         let mut _A1m1 = 0.0;
         let mut _C1a: [f64; GEODESIC_ORDER + 1] = [0.0; GEODESIC_ORDER + 1];
         let mut _B11 = 0.0;

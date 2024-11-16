@@ -199,8 +199,10 @@ impl Geodesic {
         let mut calp2 = f64::NAN;
         let mut dnm = f64::NAN;
 
+        /*
         let mut somg12: f64;
         let mut comg12: f64;
+        */
 
         let sbet12 = sbet2 * cbet1 - cbet2 * sbet1;
         let cbet12 = cbet2 * cbet1 + sbet2 * sbet1;
@@ -209,24 +211,27 @@ impl Geodesic {
         sbet12a += cbet2 * sbet1;
 
         let shortline = cbet12 >= 0.0 && sbet12 < 0.5 && cbet2 * lam12 < 0.5;
-        if shortline {
+        let (mut somg12, mut comg12) = if shortline {
+            // sbetm2 = sin^2(beta1+beta2/2)
+            // the expression:
+            //   let sbetm2 = 0.5 * ( 1.0 - ( ( cbet1 * cbet2 ) - (sbet1 * sbet2 )));
+            // also passes all tests
             let mut sbetm2 = (sbet1 + sbet2).powi(2);
             sbetm2 /= sbetm2 + (cbet1 + cbet2).powi(2);
             dnm = (1.0 + self._ep2 * sbetm2).sqrt();
             let omg12 = lam12 / (self._f1 * dnm);
-            somg12 = omg12.sin();
-            comg12 = omg12.cos();
+            omg12.sin_cos()
         } else {
-            somg12 = slam12;
-            comg12 = clam12;
-        }
+            (slam12,clam12)
+        };
 
         let mut salp1 = cbet2 * somg12;
 
+        let temp = cbet2 * sbet1 * somg12.powi(2) / (1.0 + comg12.abs());
         let mut calp1 = if comg12 >= 0.0 {
-            sbet12 + cbet2 * sbet1 * somg12.powi(2) / (1.0 + comg12)
+            sbet12 + temp
         } else {
-            sbet12a - cbet2 * sbet1 * somg12.powi(2) / (1.0 - comg12)
+            sbet12a - temp
         };
 
         let ssig12 = salp1.hypot(calp1);
@@ -467,20 +472,7 @@ impl Geodesic {
         lat1 *= latsign;
         lat2 *= latsign;
 
-        /*
-        let (mut sbet1, mut cbet1) = geomath::sincosd(lat1);
-        sbet1 *= self._f1;
-        geomath::norm(&mut sbet1, &mut cbet1);
-        cbet1 = cbet1.max(TINY);
-        */
         let (sbet1, cbet1) = self.sincosd_for_ellipsoid(lat1);
-
-        /*
-        let (mut sbet2, mut cbet2) = geomath::sincosd(lat2);
-        sbet2 *= self._f1;
-        geomath::norm(&mut sbet2, &mut cbet2);
-        cbet2 = cbet2.max(TINY);
-        */
         let (mut sbet2, mut cbet2) = self.sincosd_for_ellipsoid(lat2);
 
         if cbet1 < -sbet1 {
