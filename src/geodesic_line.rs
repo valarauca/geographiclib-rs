@@ -3,11 +3,11 @@
 use crate::geodesic::{self, GEODESIC_ORDER};
 use crate::geodesic_capability as caps;
 use crate::geomath;
+use crate::internals::constants::{TINY};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct GeodesicLine {
-    tiny_: f64, // This should be moved to consts
     _A1m1: f64,
     _A2m1: f64,
     _A3c: f64,
@@ -70,7 +70,6 @@ impl GeodesicLine {
         };
 
         // This was taken from geodesic, putting it here for convenience
-        let tiny_ = geomath::get_min_val().sqrt();
 
         let _a = geod.a;
         let f = geod.f;
@@ -90,7 +89,7 @@ impl GeodesicLine {
         let (mut sbet1, mut cbet1) = geomath::sincosd(geomath::ang_round(lat1));
         sbet1 *= _f1;
         geomath::norm(&mut sbet1, &mut cbet1);
-        cbet1 = tiny_.max(cbet1);
+        cbet1 = TINY.max(cbet1);
         let _dn1 = (1.0 + geod._ep2 * geomath::sq(sbet1)).sqrt();
         let _salp0 = salp1 * cbet1;
         let _calp0 = calp1.hypot(salp1 * sbet1);
@@ -157,7 +156,6 @@ impl GeodesicLine {
         let _a13 = f64::NAN;
 
         GeodesicLine {
-            tiny_,
             _A1m1,
             _A2m1,
             _A3c,
@@ -269,8 +267,8 @@ impl GeodesicLine {
         let sbet2 = self._calp0 * ssig2;
         let mut cbet2 = self._salp0.hypot(self._calp0 * csig2);
         if cbet2 == 0.0 {
-            cbet2 = self.tiny_;
-            csig2 = self.tiny_;
+            cbet2 = TINY;
+            csig2 = TINY;
         }
         let salp2 = self._salp0;
         let calp2 = self._calp0 * csig2;

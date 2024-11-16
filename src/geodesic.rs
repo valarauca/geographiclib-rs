@@ -6,7 +6,7 @@ use crate::geodesic_line;
 use crate::geomath;
 use std::sync;
 
-use crate::internals::constants::{TOL0,TOL1};
+use crate::internals::constants::{TOL0,TOL1,TOL2,TINY};
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
@@ -37,8 +37,6 @@ pub struct Geodesic {
     maxit1_: u64,
     maxit2_: u64,
 
-    pub tiny_: f64,
-    _tol2_: f64,
     tolb_: f64,
     xthresh_: f64,
 }
@@ -90,10 +88,8 @@ impl Geodesic {
     pub fn new(a: f64, f: f64) -> Self {
         let maxit1_ = 20;
         let maxit2_ = maxit1_ + geomath::DIGITS + 10;
-        let tiny_ = geomath::get_min_val().sqrt();
-        let _tol2_ = TOL0.sqrt();
-        let tolb_ = TOL0 * _tol2_;
-        let xthresh_ = 1000.0 * _tol2_;
+        let tolb_ = TOL0 * TOL2;
+        let xthresh_ = 1000.0 * TOL2;
 
         let _f1 = 1.0 - f;
         let _e2 = f * (2.0 - f);
@@ -109,7 +105,7 @@ impl Geodesic {
                         / _e2
                 }))
             / 2.0;
-        let _etol2 = 0.1 * _tol2_ / (f.abs().max(0.001) * (1.0 - f / 2.0).min(1.0) / 2.0).sqrt();
+        let _etol2 = 0.1 * TOL2 / (f.abs().max(0.001) * (1.0 - f / 2.0).min(1.0) / 2.0).sqrt();
 
         let mut _A3x: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
         let mut _C3x: [f64; _nC3x_] = [0.0; _nC3x_];
@@ -167,8 +163,6 @@ impl Geodesic {
             maxit1_,
             maxit2_,
 
-            tiny_,
-            _tol2_,
             tolb_,
             xthresh_,
         }
@@ -437,7 +431,7 @@ impl Geodesic {
         C3a: &mut [f64],
     ) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         if sbet1 == 0.0 && calp1 == 0.0 {
-            calp1 = -self.tiny_;
+            calp1 = -TINY;
         }
         let salp0 = salp1 * cbet1;
         let calp0 = calp1.hypot(salp1 * sbet1);
@@ -586,13 +580,13 @@ impl Geodesic {
         sbet1 *= self._f1;
 
         geomath::norm(&mut sbet1, &mut cbet1);
-        cbet1 = cbet1.max(self.tiny_);
+        cbet1 = cbet1.max(TINY);
 
         let (mut sbet2, mut cbet2) = geomath::sincosd(lat2);
         sbet2 *= self._f1;
 
         geomath::norm(&mut sbet2, &mut cbet2);
-        cbet2 = cbet2.max(self.tiny_);
+        cbet2 = cbet2.max(TINY);
 
         if cbet1 < -sbet1 {
             if cbet2 == cbet1 {
@@ -656,7 +650,7 @@ impl Geodesic {
             M21 = res.4;
 
             if sig12 < 1.0 || m12x >= 0.0 {
-                if sig12 < 3.0 * self.tiny_ {
+                if sig12 < 3.0 * TINY {
                     sig12 = 0.0;
                     m12x = 0.0;
                     s12x = 0.0;
@@ -712,9 +706,9 @@ impl Geodesic {
             } else {
                 let mut tripn = false;
                 let mut tripb = false;
-                let mut salp1a = self.tiny_;
+                let mut salp1a = TINY;
                 let mut calp1a = 1.0;
-                let mut salp1b = self.tiny_;
+                let mut salp1b = TINY;
                 let mut calp1b = -1.0;
                 let mut domg12 = 0.0;
                 for numit in 0..self.maxit2_ {
@@ -854,7 +848,7 @@ impl Geodesic {
                 let mut calp12 = calp2 * calp1 + salp2 * salp1;
 
                 if salp12 == 0.0 && calp12 < 0.0 {
-                    salp12 = self.tiny_ * calp1;
+                    salp12 = TINY * calp1;
                     calp12 = -1.0;
                 }
                 alp12 = salp12.atan2(calp12);
