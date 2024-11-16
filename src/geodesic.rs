@@ -4,17 +4,11 @@
 use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
-use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH};
+use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
 use std::sync;
 
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
-
-pub const WGS84_A: f64 = 6378137.0;
-// Evaluating this as 1000000000.0 / (298257223563f64) reduces the
-// round-off error by about 10%.  However, expressing the flattening as
-// 1/298.257223563 is well ingrained.
-pub const WGS84_F: f64 = 1.0 / ((298257223563f64) / 1000000000.0);
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Geodesic {
@@ -30,12 +24,6 @@ pub struct Geodesic {
     _A3x: [f64; GEODESIC_ORDER],
     _C3x: [f64; _nC3x_],
     _C4x: [f64; _nC4x_],
-
-    pub GEODESIC_ORDER: usize,
-    _nC3x_: usize,
-    _nC4x_: usize,
-    maxit1_: u64,
-    maxit2_: u64,
 }
 
 static WGS84_GEOD: sync::OnceLock<Geodesic> = sync::OnceLock::new();
@@ -75,7 +63,6 @@ const COEFF_C4: [f64; 77] = [
     -3328.0, 1144.0, 315315.0, -128.0, 135135.0, -2560.0, 832.0, 405405.0, 128.0, 99099.0,
 ];
 
-pub const GEODESIC_ORDER: usize = 6;
 #[allow(non_upper_case_globals)]
 const _nC3x_: usize = 15;
 #[allow(non_upper_case_globals)]
@@ -83,8 +70,6 @@ const _nC4x_: usize = 21;
 
 impl Geodesic {
     pub fn new(a: f64, f: f64) -> Self {
-        let maxit1_ = 20;
-        let maxit2_ = maxit1_ + geomath::DIGITS + 10;
 
         let _f1 = 1.0 - f;
         let _e2 = f * (2.0 - f);
@@ -151,17 +136,11 @@ impl Geodesic {
             _A3x,
             _C3x,
             _C4x,
-
-            GEODESIC_ORDER,
-            _nC3x_,
-            _nC4x_,
-            maxit1_,
-            maxit2_,
         }
     }
 
     pub fn _A3f(&self, eps: f64) -> f64 {
-        geomath::polyval(self.GEODESIC_ORDER - 1, &self._A3x, eps)
+        geomath::polyval(GEODESIC_ORDER - 1, &self._A3x, eps)
     }
 
     pub fn _C3f(&self, eps: f64, c: &mut [f64]) {
@@ -222,9 +201,9 @@ impl Geodesic {
         let mut J12 = 0.0;
 
         if outmask & (caps::DISTANCE | caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            A1 = geomath::_A1m1f(eps, self.GEODESIC_ORDER);
+            A1 = geomath::_A1m1f(eps, GEODESIC_ORDER);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                A2 = geomath::_A2m1f(eps, self.GEODESIC_ORDER);
+                A2 = geomath::_A2m1f(eps, GEODESIC_ORDER);
                 m0x = A1 - A2;
                 A2 += 1.0;
             }
@@ -681,7 +660,7 @@ impl Geodesic {
                 let mut salp1b = TINY;
                 let mut calp1b = -1.0;
                 let mut domg12 = 0.0;
-                for numit in 0..self.maxit2_ {
+                for numit in 0..MAX_ITERATIONS {
                     let res = self._Lambda12(
                         sbet1,
                         cbet1,
@@ -693,7 +672,7 @@ impl Geodesic {
                         calp1,
                         slam12,
                         clam12,
-                        numit < self.maxit1_,
+                        numit < ITERATIONS,
                         &mut C3a,
                     );
                     let v = res.0;
@@ -714,14 +693,14 @@ impl Geodesic {
                     {
                         break;
                     };
-                    if v > 0.0 && (numit > self.maxit1_ || calp1 / salp1 > calp1b / salp1b) {
+                    if v > 0.0 && (numit > ITERATIONS || calp1 / salp1 > calp1b / salp1b) {
                         salp1b = salp1;
                         calp1b = calp1;
-                    } else if v < 0.0 && (numit > self.maxit1_ || calp1 / salp1 < calp1a / salp1a) {
+                    } else if v < 0.0 && (numit > ITERATIONS || calp1 / salp1 < calp1a / salp1a) {
                         salp1a = salp1;
                         calp1a = calp1;
                     }
-                    if numit < self.maxit1_ && dv > 0.0 {
+                    if numit < ITERATIONS && dv > 0.0 {
                         let dalp1 = -v / dv;
                         let sdalp1 = dalp1.sin();
                         let cdalp1 = dalp1.cos();

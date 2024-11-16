@@ -5,9 +5,6 @@ use crate::internals::utils::{sum_fourier_fast,constant_polyval};
 use crate::internals::subarray::SubArray;
 use crate::internals::constants::{C1F_COEFF,C2F_COEFF,C1PF_COEFF,COEFF_SIZE};
 
-pub const DIGITS: u64 = 53;
-pub const TWO: f64 = 2.0;
-
 // Square
 pub fn sq(x: f64) -> f64 {
     x.powi(2)

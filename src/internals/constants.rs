@@ -14,7 +14,6 @@ pub (in crate) const WGS84_F: f64 = 1.0_f64 / ( 298257223563.0_f64 / 1000000000.
  */
 pub (in crate) const TOL0: f64 = f64::EPSILON;
 pub (in crate) const TOL1: f64 = TOL0 * 200.0_f64;
-pub (in crate) const NEGATIVE_TOL1: f64 = -TOL1;
 // TINY is the square root of `f64::MIN_POSITIVE` at time of writing rust doesn't consider
 // f64::sqrt to be constant time, so a manual value is written here
 pub (in crate) const TINY: f64 = 1.4916681462400413e-154;

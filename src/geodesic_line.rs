@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
-use crate::geodesic::{self, GEODESIC_ORDER};
+use crate::geodesic::{self};
 use crate::geodesic_capability as caps;
 use crate::geomath;
-use crate::internals::constants::{TINY};
+use crate::internals::constants::{TINY,GEODESIC_ORDER};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
@@ -111,8 +111,8 @@ impl GeodesicLine {
         let mut _stau1 = 0.0;
         let mut _ctau1 = 0.0;
         if caps & caps::CAP_C1 != 0 {
-            _A1m1 = geomath::_A1m1f(eps, geod.GEODESIC_ORDER);
-            geomath::_C1f(eps, &mut _C1a, geod.GEODESIC_ORDER);
+            _A1m1 = geomath::_A1m1f(eps, GEODESIC_ORDER);
+            geomath::_C1f(eps, &mut _C1a, GEODESIC_ORDER);
             _B11 = geomath::sin_cos_series(true, _ssig1, _csig1, &_C1a);
             let s = _B11.sin();
             let c = _B11.cos();
@@ -122,15 +122,15 @@ impl GeodesicLine {
 
         let mut _C1pa: [f64; GEODESIC_ORDER + 1] = [0.0; GEODESIC_ORDER + 1];
         if caps & caps::CAP_C1p != 0 {
-            geomath::_C1pf(eps, &mut _C1pa, geod.GEODESIC_ORDER);
+            geomath::_C1pf(eps, &mut _C1pa, GEODESIC_ORDER);
         }
 
         let mut _A2m1 = 0.0;
         let mut _C2a: [f64; GEODESIC_ORDER + 1] = [0.0; GEODESIC_ORDER + 1];
         let mut _B21 = 0.0;
         if caps & caps::CAP_C2 != 0 {
-            _A2m1 = geomath::_A2m1f(eps, geod.GEODESIC_ORDER);
-            geomath::_C2f(eps, &mut _C2a, geod.GEODESIC_ORDER);
+            _A2m1 = geomath::_A2m1f(eps, GEODESIC_ORDER);
+            geomath::_C2f(eps, &mut _C2a, GEODESIC_ORDER);
             _B21 = geomath::sin_cos_series(true, _ssig1, _csig1, &_C2a);
         }
 
