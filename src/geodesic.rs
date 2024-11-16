@@ -206,8 +206,8 @@ impl Geodesic {
         cbet1: f64,
         cbet2: f64,
         outmask: u64,
-        C1a: &mut [f64],
-        C2a: &mut [f64],
+        //C1a: &mut [f64],
+        //C2a: &mut [f64],
     ) -> (f64, f64, f64, f64, f64) {
         use crate::internals::constants::{C1F_COEFF,C2F_COEFF};
 
@@ -240,14 +240,7 @@ impl Geodesic {
                 J12 = m0x * sig12 + (A1 * B1 - A2 * B2);
             }
         } else if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            geomath::_C1f(eps, C1a, self.GEODESIC_ORDER);
-            geomath::_C2f(eps, C2a, self.GEODESIC_ORDER);
-            for l in 1..=self.GEODESIC_ORDER {
-                C2a[l] = A1 * C1a[l] - A2 * C2a[l];
-            }
-            J12 = m0x * sig12
-                + (geomath::sin_cos_series(true, ssig2, csig2, C2a)
-                    - geomath::sin_cos_series(true, ssig1, csig1, C2a));
+            J12 = m0x * sig12 + geomath::equation_40(eps, ssig1, csig1, ssig2, csig2, A1, A2);
         }
         if outmask & caps::REDUCEDLENGTH != 0 {
             m0 = m0x;
@@ -275,8 +268,8 @@ impl Geodesic {
         lam12: f64,
         slam12: f64,
         clam12: f64,
-        C1a: &mut [f64],
-        C2a: &mut [f64],
+        //C1a: &mut [f64],
+        //C2a: &mut [f64],
     ) -> (f64, f64, f64, f64, f64, f64) {
         let mut sig12 = -1.0;
         let mut salp2 = f64::NAN;
@@ -360,8 +353,8 @@ impl Geodesic {
                     cbet1,
                     cbet2,
                     caps::REDUCEDLENGTH,
-                    C1a,
-                    C2a,
+                    //C1a,
+                    //C2a,
                 );
                 x = -1.0 + m12b / (cbet1 * cbet2 * m0 * PI);
                 betscale = if x < -0.01 {
@@ -483,8 +476,8 @@ impl Geodesic {
                     cbet1,
                     cbet2,
                     caps::REDUCEDLENGTH,
-                    C1a,
-                    C2a,
+                    //C1a,
+                    //C2a,
                 );
                 dlam12 = res.1;
                 dlam12 *= self._f1 / (calp2 * cbet2);
@@ -633,8 +626,8 @@ impl Geodesic {
                 cbet1,
                 cbet2,
                 outmask | caps::DISTANCE | caps::REDUCEDLENGTH,
-                &mut C1a,
-                &mut C2a,
+                //&mut C1a,
+                //&mut C2a,
             );
             s12x = res.0;
             m12x = res.1;
@@ -677,7 +670,7 @@ impl Geodesic {
             a12 = lon12 / self._f1;
         } else if !meridian {
             let res = self._InverseStart(
-                sbet1, cbet1, dn1, sbet2, cbet2, dn2, lam12, slam12, clam12, &mut C1a, &mut C2a,
+                sbet1, cbet1, dn1, sbet2, cbet2, dn2, lam12, slam12, clam12, /*&mut C1a, &mut C2a,*/
             );
             sig12 = res.0;
             salp1 = res.1;
@@ -774,7 +767,7 @@ impl Geodesic {
                     };
                 let res = self._Lengths(
                     eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2, lengthmask,
-                    &mut C1a, &mut C2a,
+                    /*&mut C1a, &mut C2a,*/
                 );
                 s12x = res.0;
                 m12x = res.1;
@@ -1685,8 +1678,8 @@ mod tests {
             0.017453292519943295,
             0.01745240643728351,
             0.9998476951563913,
-            &mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            //&mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            //&mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
         );
         assert_eq!(res.0, -1.0);
         assert_relative_eq!(res.1, 0.7095310092765433, epsilon = 1e-13);
@@ -1705,8 +1698,8 @@ mod tests {
             0.017453292519943295,
             0.01745240643728351,
             0.9998476951563913,
-            &mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            //&mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            //&mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
         );
         assert_eq!(res.0, -1.0);
         assert_relative_eq!(res.1, 0.7095310092765433, epsilon = 1e-13);
@@ -1803,8 +1796,8 @@ mod tests {
     fn test_lengths() {
         // Results taken from the python implementation
         let geod = Geodesic::wgs84();
-        let mut c1a = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let mut c2a = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        //let mut c1a = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        //let mut c2a = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let res1 = geod._Lengths(
             0.0008355095326524276,
             0.024682339962725352,
@@ -1817,8 +1810,8 @@ mod tests {
             0.9998487145115275,
             1.0,
             4101,
-            &mut c1a,
-            &mut c2a,
+            //&mut c1a,
+            //&mut c2a,
         );
         assert!(res1.0.is_nan());
         assert_eq!(res1.1, 0.024679842274314294);
@@ -1838,6 +1831,7 @@ mod tests {
             0.9998487145115275,
             1.0,
             4101,
+            /*
             &mut [
                 0.0,
                 -0.00041775465696698233,
@@ -1856,6 +1850,7 @@ mod tests {
                 -2.2251271876594078e-17,
                 1.2789961247944744e-20,
             ],
+            */
         );
         assert!(res2.0.is_nan());
         assert_eq!(res2.1, 0.02467984121870759);
@@ -1875,6 +1870,7 @@ mod tests {
             0.9998487145115275,
             1.0,
             1920,
+            /*
             &mut [
                 0.0,
                 -0.00041775469264372037,
@@ -1893,6 +1889,7 @@ mod tests {
                 -2.2251281376754273e-17,
                 1.2789967801615795e-20,
             ],
+            */
         );
         assert_eq!(res3.0, 0.024682347295447677);
         assert!(res3.1.is_nan());
@@ -1912,6 +1909,7 @@ mod tests {
             0.8139459053827204,
             0.9811634781422108,
             1920,
+            /*
             &mut [
                 0.0,
                 -0.0003561309485314716,
@@ -1930,6 +1928,7 @@ mod tests {
                 -1.0019350865558619e-17,
                 4.90907357448807e-21,
             ],
+            */
         );
         assert_eq!(res.0, 1.4056304412645388);
         assert!(res.1.is_nan());

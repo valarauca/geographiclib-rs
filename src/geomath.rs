@@ -352,6 +352,80 @@ pub (in crate) fn difference_of_meridian_arc_lengths(
     sine_series_2 - sine_series_1
 }
 
+/// calculates `J(σ1)-J(σ2)` or equation 40
+/// assumes the results of equation 42 are given to `a2`
+/// assumes the results of equation 17 are given to `a1`
+/// calculates the values of equation 18 & 43
+pub (in crate) fn equation_40(
+    epsilon: f64,
+    sine_sigma_1: f64, cosine_sigma_1: f64,
+    sine_sigma_2: f64, cosine_sigma_2: f64,
+    a1: f64, a2: f64,
+) -> f64 {
+    // these values remain fixed for the entire calculation
+    let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+    let seed2: f64 = 2.0_f64 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
+
+    // precalc these
+    let epsilon2: f64 = epsilon  * epsilon;
+    let epsilon3: f64 = epsilon2 * epsilon;
+    let epsilon4: f64 = epsilon3 * epsilon;
+    let epsilon5: f64 = epsilon4 * epsilon;
+    let epsilon6: f64 = epsilon5 * epsilon;
+
+    // initialized these with zero
+    let y1_0 = 0.0_f64;
+    let y1_1 = 0.0_f64;
+    let y2_0 = 0.0_f64;
+    let y2_1 = 0.0_f64;
+
+    // The generation of the Fourier expansion coefficients of B1/B2 (by functions C1f & C2f) are
+    // generated inline & consummed immediately by the SinCosSeries function who's inner loop
+    // is also unrolled here.
+    //
+    // See the comment at the head of this function for the entire rationale.
+    let arr_6_1 = epsilon6 * constant_polyval::<0, {COEFF_SIZE - 16}>(&C1F_COEFF[SubArray::<{COEFF_SIZE - 16}, 16>], epsilon2) / C1F_COEFF[17];
+    let arr_6_2 = epsilon6 * constant_polyval::<0, {COEFF_SIZE - 16}>(&C2F_COEFF[SubArray::<{COEFF_SIZE - 16}, 16>], epsilon2) / C2F_COEFF[17];
+    let arr_6 = a1 * arr_6_1 - a2 * arr_6_2;
+    let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
+    let y2_1 = seed2 * y2_0 - y2_1 + arr_6;
+
+    let arr_5_1 = epsilon5 * constant_polyval::<0, {COEFF_SIZE - 14}>(&C1F_COEFF[SubArray::<{COEFF_SIZE - 14}, 14>], epsilon2) / C1F_COEFF[15];
+    let arr_5_2 = epsilon5 * constant_polyval::<0, {COEFF_SIZE - 14}>(&C2F_COEFF[SubArray::<{COEFF_SIZE - 14}, 14>], epsilon2) / C2F_COEFF[15];
+    let arr_5 = a1 * arr_5_1 - a2 * arr_5_2;
+    let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
+    let y2_0 = seed2 * y2_1 - y2_0 + arr_5;
+
+    let arr_4_1 = epsilon4 * constant_polyval::<1, {COEFF_SIZE - 11}>(&C1F_COEFF[SubArray::<{COEFF_SIZE - 11}, 11>], epsilon2) / C1F_COEFF[13];
+    let arr_4_2 = epsilon4 * constant_polyval::<1, {COEFF_SIZE - 11}>(&C2F_COEFF[SubArray::<{COEFF_SIZE - 11}, 11>], epsilon2) / C2F_COEFF[13];
+    let arr_4 = a1 * arr_4_1 - a2 * arr_4_2;
+    let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
+    let y2_1 = seed2 * y2_0 - y2_1 + arr_4;
+
+    let arr_3_1 = epsilon3 * constant_polyval::<1, {COEFF_SIZE -  8}>(&C1F_COEFF[SubArray::<{COEFF_SIZE - 8},   8>], epsilon2) / C1F_COEFF[10];
+    let arr_3_2 = epsilon3 * constant_polyval::<1, {COEFF_SIZE -  8}>(&C2F_COEFF[SubArray::<{COEFF_SIZE - 8},   8>], epsilon2) / C2F_COEFF[10];
+    let arr_3 = a1 * arr_3_1 - a2 * arr_3_2;
+    let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
+    let y2_0 = seed2 * y2_1 - y2_0 + arr_3;
+
+    let arr_2_1 = epsilon2 * constant_polyval::<2, {COEFF_SIZE -  4}>(&C1F_COEFF[SubArray::<{COEFF_SIZE - 4},   4>], epsilon2) / C1F_COEFF[ 7];
+    let arr_2_2 = epsilon2 * constant_polyval::<2, {COEFF_SIZE -  4}>(&C2F_COEFF[SubArray::<{COEFF_SIZE - 4},   4>], epsilon2) / C2F_COEFF[ 7];
+    let arr_2 = a1 * arr_2_1 - a2 * arr_2_2;
+    let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
+    let y2_1 = seed2 * y2_0 - y2_1 + arr_2;
+
+    let arr_1_1 = epsilon  * constant_polyval::<2, {COEFF_SIZE -  0}>(&C1F_COEFF,                                    epsilon2) / C1F_COEFF[ 3];
+    let arr_1_2 = epsilon  * constant_polyval::<2, {COEFF_SIZE -  0}>(&C2F_COEFF,                                    epsilon2) / C2F_COEFF[ 3];
+    let arr_1 = a1 * arr_1_1 - a2 * arr_1_2;
+    let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
+    let y2_0 = seed2 * y2_1 - y2_0 + arr_1;
+
+    let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
+    let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
+
+    sine_series_2 - sine_series_1
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
