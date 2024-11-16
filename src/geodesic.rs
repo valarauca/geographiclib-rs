@@ -6,7 +6,7 @@ use crate::geodesic_line;
 use crate::geomath;
 use std::sync;
 
-use crate::internals::constants::{TOL0};
+use crate::internals::constants::{TOL0,TOL1};
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
@@ -38,7 +38,6 @@ pub struct Geodesic {
     maxit2_: u64,
 
     pub tiny_: f64,
-    tol1_: f64,
     _tol2_: f64,
     tolb_: f64,
     xthresh_: f64,
@@ -92,7 +91,6 @@ impl Geodesic {
         let maxit1_ = 20;
         let maxit2_ = maxit1_ + geomath::DIGITS + 10;
         let tiny_ = geomath::get_min_val().sqrt();
-        let tol1_ = 200.0 * TOL0;
         let _tol2_ = TOL0.sqrt();
         let tolb_ = TOL0 * _tol2_;
         let xthresh_ = 1000.0 * _tol2_;
@@ -170,7 +168,6 @@ impl Geodesic {
             maxit2_,
 
             tiny_,
-            tol1_,
             _tol2_,
             tolb_,
             xthresh_,
@@ -389,12 +386,12 @@ impl Geodesic {
                 lamscale = betscale / cbet1;
                 y = lam12x / lamscale;
             }
-            if y > -self.tol1_ && x > -1.0 - self.xthresh_ {
+            if y > -TOL1 && x > -1.0 - self.xthresh_ {
                 if self.f >= 0.0 {
                     salp1 = (-x).min(1.0);
                     calp1 = -(1.0 - geomath::sq(salp1)).sqrt()
                 } else {
-                    calp1 = x.max(if x > -self.tol1_ { 0.0 } else { -1.0 });
+                    calp1 = x.max(if x > -TOL1 { 0.0 } else { -1.0 });
                     salp1 = (1.0 - geomath::sq(calp1)).sqrt();
                 }
             } else {
