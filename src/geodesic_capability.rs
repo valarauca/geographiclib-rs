@@ -23,3 +23,4 @@ pub const AREA: u64 = 1 << 14 | CAP_C4;
 pub const LONG_UNROLL: u64 = 1 << 15;
 // Does not include LONG_UNROLL
 pub const ALL: u64 = OUT_ALL | CAP_ALL;
+

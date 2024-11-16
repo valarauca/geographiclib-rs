@@ -6,9 +6,9 @@ use crate::{
         polyval,
     },
     internals::{
-        constants::{GEODESIC_ORDER},
+        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF},
         subarray::{SubArray},
-        utils::{constant_polyval},
+        utils::{constant_polyval,sum_fourier_fast},
     },
 };
 
@@ -38,12 +38,16 @@ pub (in crate) struct Weights {
     third_flattening: f64,
     a1_fixed: f64,
     a2_fixed: f64,
+    c1f_fixed: [f64;7],
+    c2f_fixed: [f64;7],
 }
 impl Weights {
     pub (in crate) fn new(third_flattening: f64) -> Self {
 
-        let a1_fixed = _A1m1f(third_flattening, GEODESIC_ORDER);
-        let a2_fixed = _A2m1f(third_flattening, GEODESIC_ORDER);
+        let a1_fixed = _A1m1f(third_flattening);
+        let a2_fixed = _A2m1f(third_flattening);
+        let c1f_fixed = sum_fourier_fast(third_flattening, &C1F_COEFF);
+        let c2f_fixed = sum_fourier_fast(third_flattening, &C2F_COEFF);
 
         /*
          * a3x constant calculation
@@ -115,6 +119,8 @@ impl Weights {
             third_flattening,
             a1_fixed,
             a2_fixed,
+            c1f_fixed,
+            c2f_fixed,
         }
     }
 
@@ -236,7 +242,7 @@ impl Weights {
         if epsilon == self.third_flattening {
             self.a1_fixed.clone()
         } else {
-            _A1m1f(epsilon, GEODESIC_ORDER)
+            _A1m1f(epsilon)
         }
     }
 
@@ -244,7 +250,88 @@ impl Weights {
         if epsilon == self.third_flattening {
             self.a2_fixed.clone()
         } else {
-            _A2m1f(epsilon, GEODESIC_ORDER)
+            _A2m1f(epsilon)
         }
+    }
+
+    pub (in crate) fn reduced_lengths(
+        &self,
+        eps: f64,
+        sig12: f64,
+        ssig1: f64,
+        csig1: f64,
+        dn1: f64,
+        ssig2: f64,
+        csig2: f64,
+        dn2: f64,
+    ) -> (f64, f64) {
+
+        let (a1,a2) = if eps == self.third_flattening {
+                (self.a1_fixed.clone(), self.a2_fixed.clone())
+        } else {
+                (
+                    _A1m1f(eps),
+                    _A2m1f(eps)
+                )
+        };
+        let m0 = a1 - a2;
+        let j12 = m0 * sig12 + self.equation_40(eps, ssig1, csig1, ssig2, csig2, a1+1.0, a2+1.0);
+        let m12b = dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * j12;
+        (m12b, m0)
+    }
+
+    /// calculates `J(σ1)-J(σ2)` or equation 40
+    /// assumes the results of equation 42 are given to `a2`
+    /// assumes the results of equation 17 are given to `a1`
+    /// calculates the values of equation 18 & 43
+    pub (in crate) fn equation_40(
+        &self,
+        epsilon: f64,
+        sine_sigma_1: f64, cosine_sigma_1: f64,
+        sine_sigma_2: f64, cosine_sigma_2: f64,
+        a1: f64, a2: f64,
+    ) -> f64 {
+        // these values remain fixed for the entire calculation
+        let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+        let seed2: f64 = 2.0_f64 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
+    
+    
+        // initialized these with zero
+        let y1_0 = 0.0_f64;
+        let y1_1 = 0.0_f64;
+        let y2_0 = 0.0_f64;
+        let y2_1 = 0.0_f64;
+        
+        let (c1f,c2f) = if epsilon == self.third_flattening {
+            (self.c1f_fixed.clone(), self.c2f_fixed.clone())
+        } else {
+            (
+                sum_fourier_fast(epsilon, &C1F_COEFF),
+                sum_fourier_fast(epsilon, &C2F_COEFF),
+            )
+        };
+        let arr_6 = a1 * c1f[6] - a2 * c2f[6];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_6;
+        let arr_5 = a1 * c1f[5] - a2 * c2f[5];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_5;
+        let arr_4 = a1 * c1f[4] - a2 * c2f[4];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_4;
+        let arr_3 = a1 * c1f[3] - a2 * c2f[3];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_3;
+        let arr_2 = a1 * c1f[2] - a2 * c2f[2];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_2;
+        let arr_1 = a1 * c1f[1] - a2 * c2f[1];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_1;
+    
+        let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
+        let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
+    
+        sine_series_2 - sine_series_1
     }
 }

@@ -244,7 +244,7 @@ pub fn astroid(x: f64, y: f64) -> f64 {
     }
 }
 
-pub fn _A1m1f(eps: f64, _geodesic_order: usize) -> f64 {
+pub fn _A1m1f(eps: f64) -> f64 {
     const COEFF: [f64; 5] = [1.0, 4.0, 64.0, 0.0, 256.0];
     let t: f64 = constant_polyval::<3,5>(&COEFF, eps.powi(2)) / COEFF[4];
     (t + eps) / (1.0 - eps)
@@ -257,6 +257,7 @@ pub fn _C1f(eps: f64, c: &mut [f64], geodesic_order: usize) {
     }
 }
 
+#[inline]
 pub (in crate) fn fast_c1f(epsilon: f64) -> [f64;7] {
     sum_fourier_fast(epsilon,&C1F_COEFF)
 }
@@ -273,7 +274,7 @@ pub (in crate) fn fast_c1pf(epsilon: f64) -> [f64;7] {
     sum_fourier_fast(epsilon,&C1PF_COEFF)
 }
 
-pub fn _A2m1f(eps: f64, _geodesic_order: usize) -> f64 {
+pub fn _A2m1f(eps: f64) -> f64 {
     const COEFF: [f64; 5] = [-11.0, -28.0, -192.0, 0.0, 256.0];
     let t: f64 = constant_polyval::<3,5>(&COEFF, eps.powi(2)) / COEFF[4];
     (t - eps) / (1.0 + eps)
@@ -286,6 +287,7 @@ pub fn _C2f(eps: f64, c: &mut [f64], geodesic_order: usize) {
     }
 }
 
+#[inline]
 pub (in crate) fn fast_c2f(epsilon: f64) -> [f64;7] {
     sum_fourier_fast(epsilon,&C2F_COEFF)
 }
@@ -463,7 +465,7 @@ mod tests {
 
     #[test]
     fn test__A2m1f() {
-        assert_eq!(_A2m1f(0.12, 6), -0.11680607884285714);
+        assert_eq!(_A2m1f(0.12), -0.11680607884285714);
     }
 
     #[test]
@@ -504,7 +506,7 @@ mod tests {
 
     #[test]
     fn test__A1m1f() {
-        assert_eq!(_A1m1f(0.12, 6), 0.1404582405272727);
+        assert_eq!(_A1m1f(0.12), 0.1404582405272727);
     }
 
     #[test]

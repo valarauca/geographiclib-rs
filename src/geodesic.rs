@@ -242,7 +242,7 @@ impl Geodesic {
             } else {
                 let cbet12a = cbet2 * cbet1 - sbet2 * sbet1;
                 let bet12a = sbet12a.atan2(cbet12a);
-                let (_, m12b, m0, _, _) = self._Lengths(
+                let (m12b, m0) = self.weights.reduced_lengths(
                     self._n,
                     PI + bet12a,
                     sbet1,
@@ -251,9 +251,6 @@ impl Geodesic {
                     sbet2,
                     cbet2,
                     dn2,
-                    cbet1,
-                    cbet2,
-                    caps::REDUCEDLENGTH,
                 );
                 x = -1.0 + m12b / (cbet1 * cbet2 * m0 * PI);
                 betscale = if x < -0.01 {
@@ -358,7 +355,7 @@ impl Geodesic {
             if calp2 == 0.0 {
                 dlam12 = -2.0 * self._f1 * dn1 / sbet1;
             } else {
-                let res = self._Lengths(
+                let (m12b,_) = self.weights.reduced_lengths(
                     eps,
                     sig12,
                     ssig1,
@@ -367,11 +364,8 @@ impl Geodesic {
                     ssig2,
                     csig2,
                     dn2,
-                    cbet1,
-                    cbet2,
-                    caps::REDUCEDLENGTH,
                 );
-                dlam12 = res.1;
+                dlam12 = m12b;
                 dlam12 *= self._f1 / (calp2 * cbet2);
             }
         } else {

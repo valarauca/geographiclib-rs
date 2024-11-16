@@ -111,7 +111,7 @@ impl GeodesicLine {
         let mut _stau1 = 0.0;
         let mut _ctau1 = 0.0;
         if caps & caps::CAP_C1 != 0 {
-            _A1m1 = geomath::_A1m1f(eps, GEODESIC_ORDER);
+            _A1m1 = geomath::_A1m1f(eps);
             geomath::_C1f(eps, &mut _C1a, GEODESIC_ORDER);
             _B11 = geomath::sin_cos_series(true, _ssig1, _csig1, &_C1a);
             let s = _B11.sin();
@@ -129,7 +129,7 @@ impl GeodesicLine {
         let mut _C2a: [f64; GEODESIC_ORDER + 1] = [0.0; GEODESIC_ORDER + 1];
         let mut _B21 = 0.0;
         if caps & caps::CAP_C2 != 0 {
-            _A2m1 = geomath::_A2m1f(eps, GEODESIC_ORDER);
+            _A2m1 = geomath::_A2m1f(eps);
             geomath::_C2f(eps, &mut _C2a, GEODESIC_ORDER);
             _B21 = geomath::sin_cos_series(true, _ssig1, _csig1, &_C2a);
         }
