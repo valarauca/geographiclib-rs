@@ -46,11 +46,11 @@ impl Geodesic {
 
         let _f1 = 1.0 - f;
         let _e2 = f * (2.0 - f);
-        let _ep2 = _e2 / geomath::sq(_f1);
+        let _ep2 = _e2 / _f1.powi(2);
         let _n = f / (2.0 - f);
         let _b = a * _f1;
-        let _c2 = (geomath::sq(a)
-            + geomath::sq(_b)
+        let _c2 = (a.powi(2)
+            + _b.powi(2)
                 * (if _e2 == 0.0 {
                     1.0
                 } else {
@@ -188,8 +188,8 @@ impl Geodesic {
 
         let shortline = cbet12 >= 0.0 && sbet12 < 0.5 && cbet2 * lam12 < 0.5;
         if shortline {
-            let mut sbetm2 = geomath::sq(sbet1 + sbet2);
-            sbetm2 /= sbetm2 + geomath::sq(cbet1 + cbet2);
+            let mut sbetm2 = (sbet1 + sbet2).powi(2);
+            sbetm2 /= sbetm2 + (cbet1 + cbet2).powi(2);
             dnm = (1.0 + self._ep2 * sbetm2).sqrt();
             let omg12 = lam12 / (self._f1 * dnm);
             somg12 = omg12.sin();
@@ -202,9 +202,9 @@ impl Geodesic {
         let mut salp1 = cbet2 * somg12;
 
         let mut calp1 = if comg12 >= 0.0 {
-            sbet12 + cbet2 * sbet1 * geomath::sq(somg12) / (1.0 + comg12)
+            sbet12 + cbet2 * sbet1 * somg12.powi(2) / (1.0 + comg12)
         } else {
-            sbet12a - cbet2 * sbet1 * geomath::sq(somg12) / (1.0 - comg12)
+            sbet12a - cbet2 * sbet1 * somg12.powi(2) / (1.0 - comg12)
         };
 
         let ssig12 = salp1.hypot(calp1);
@@ -216,7 +216,7 @@ impl Geodesic {
                 - cbet1
                     * sbet2
                     * (if comg12 >= 0.0 {
-                        geomath::sq(somg12) / (1.0 + comg12)
+                        somg12.powi(2) / (1.0 + comg12)
                     } else {
                         1.0 - comg12
                     });
@@ -224,7 +224,7 @@ impl Geodesic {
             sig12 = ssig12.atan2(csig12);
         } else if self._n.abs() > 0.1
             || csig12 >= 0.0
-            || ssig12 >= 6.0 * self._n.abs() * PI * geomath::sq(cbet1)
+            || ssig12 >= 6.0 * self._n.abs() * PI * cbet1.powi(2)
         {
         } else {
             let x: f64;
@@ -233,7 +233,7 @@ impl Geodesic {
             let lamscale: f64;
             let lam12x = (-slam12).atan2(-clam12);
             if self.f >= 0.0 {
-                let k2 = geomath::sq(sbet1) * self._ep2;
+                let k2 = sbet1.powi(2) * self._ep2;
                 let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
                 lamscale = self.f * cbet1 * self._A3f(eps) * PI;
                 betscale = lamscale * cbet1;
@@ -256,7 +256,7 @@ impl Geodesic {
                 betscale = if x < -0.01 {
                     sbet12a / x
                 } else {
-                    -self.f * geomath::sq(cbet1) * PI
+                    -self.f * cbet1.powi(2) * PI
                 };
                 lamscale = betscale / cbet1;
                 y = lam12x / lamscale;
@@ -264,10 +264,10 @@ impl Geodesic {
             if y > -TOL1 && x > -1.0 - X_THRESH {
                 if self.f >= 0.0 {
                     salp1 = (-x).min(1.0);
-                    calp1 = -(1.0 - geomath::sq(salp1)).sqrt()
+                    calp1 = -(1.0 - salp1.powi(2)).sqrt()
                 } else {
                     calp1 = x.max(if x > -TOL1 { 0.0 } else { -1.0 });
-                    salp1 = (1.0 - geomath::sq(calp1)).sqrt();
+                    salp1 = (1.0 - calp1.powi(2)).sqrt();
                 }
             } else {
                 let k = geomath::astroid(x, y);
@@ -280,7 +280,7 @@ impl Geodesic {
                 somg12 = omg12a.sin();
                 comg12 = -(omg12a.cos());
                 salp1 = cbet2 * somg12;
-                calp1 = sbet12a - cbet2 * sbet1 * geomath::sq(somg12) / (1.0 - comg12);
+                calp1 = sbet12a - cbet2 * sbet1 * somg12.powi(2) / (1.0 - comg12);
             }
         }
 
@@ -322,7 +322,7 @@ impl Geodesic {
 
         let salp2 = if cbet2 != cbet1 { salp0 / cbet2 } else { salp1 };
         let calp2 = if cbet2 != cbet1 || sbet2.abs() != -sbet1 {
-            (geomath::sq(calp1 * cbet1)
+            ((calp1 * cbet1).powi(2)
                 + if cbet1 < -sbet1 {
                     (cbet2 - cbet1) * (cbet1 + cbet2)
                 } else {
@@ -344,7 +344,7 @@ impl Geodesic {
         let comg12 = comg1 * comg2 + somg1 * somg2;
         let eta = (somg12 * clam120 - comg12 * slam120).atan2(comg12 * clam120 + somg12 * slam120);
 
-        let k2 = geomath::sq(calp0) * self._ep2;
+        let k2 = calp0.powi(2) * self._ep2;
         let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
         let B312 = self.weights.c3x_difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2);
         let domg12 = -self.f * self._A3f(eps) * salp0 * (sig12 + B312);
@@ -467,10 +467,8 @@ impl Geodesic {
             cbet2 = cbet1;
         }
 
-        let dn1 = (1.0 + self._ep2 * geomath::sq(sbet1)).sqrt();
-        let dn2 = (1.0 + self._ep2 * geomath::sq(sbet2)).sqrt();
-
-        //let mut C3a: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
+        let dn1 = (1.0 + self._ep2 * sbet1.powi(2)).sqrt();
+        let dn2 = (1.0 + self._ep2 * sbet2.powi(2)).sqrt();
 
         let mut meridian = lat1 == -90.0 || slam12 == 0.0;
         let mut calp1 = 0.0;
@@ -562,7 +560,7 @@ impl Geodesic {
 
             if sig12 >= 0.0 {
                 s12x = sig12 * self._b * dnm;
-                m12x = geomath::sq(dnm) * self._b * (sig12 / dnm).sin();
+                m12x = dnm.powi(2) * self._b * (sig12 / dnm).sin();
                 if outmask & caps::GEODESICSCALE != 0 {
                     M12 = (sig12 / dnm).cos();
                     M21 = (sig12 / dnm).cos();
@@ -676,9 +674,9 @@ impl Geodesic {
                 csig1 = calp1 * cbet1;
                 ssig2 = sbet2;
                 csig2 = calp2 * cbet2;
-                let k2 = geomath::sq(calp0) * self._ep2;
+                let k2 = calp0.powi(2) * self._ep2;
                 eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
-                let A4 = geomath::sq(self.a) * calp0 * salp0 * self._e2;
+                let A4 = self.a.powi(2) * calp0 * salp0 * self._e2;
                 geomath::norm(&mut ssig1, &mut csig1);
                 geomath::norm(&mut ssig2, &mut csig2);
                 let mut C4a: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];

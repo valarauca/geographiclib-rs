@@ -90,7 +90,7 @@ impl GeodesicLine {
         sbet1 *= _f1;
         geomath::norm(&mut sbet1, &mut cbet1);
         cbet1 = TINY.max(cbet1);
-        let _dn1 = (1.0 + geod._ep2 * geomath::sq(sbet1)).sqrt();
+        let _dn1 = (1.0 + geod._ep2 * sbet1.powi(2)).sqrt();
         let _salp0 = salp1 * cbet1;
         let _calp0 = calp1.hypot(salp1 * sbet1);
         let mut _ssig1 = sbet1;
@@ -102,7 +102,7 @@ impl GeodesicLine {
         };
         let _comg1 = _csig1;
         geomath::norm(&mut _ssig1, &mut _csig1);
-        let _k2 = geomath::sq(_calp0) * geod._ep2;
+        let _k2 = _calp0.powi(2) * geod._ep2;
         let eps = _k2 / (2.0 * (1.0 + (1.0 + _k2).sqrt()) + _k2);
 
         let mut _A1m1 = 0.0;
@@ -148,7 +148,7 @@ impl GeodesicLine {
         let mut _B41 = 0.0;
         if caps & caps::CAP_C4 != 0 {
             geod._C4f(eps, &mut _C4a);
-            _A4 = geomath::sq(_a) * _calp0 * _salp0 * geod._e2;
+            _A4 = _a.powi(2) * _calp0 * _salp0 * geod._e2;
             _B41 = geomath::sin_cos_series(false, _ssig1, _csig1, &_C4a);
         }
 
@@ -249,14 +249,14 @@ impl GeodesicLine {
                 csig2 = self._csig1 * csig12 - self._ssig1 * ssig12;
                 B12 = geomath::sin_cos_series(true, ssig2, csig2, &self._C1a);
                 let serr = (1.0 + self._A1m1) * (sig12 + (B12 - self._B11)) - s12_a12 / self._b;
-                sig12 -= serr / (1.0 + self._k2 * geomath::sq(ssig2)).sqrt();
+                sig12 -= serr / (1.0 + self._k2 * ssig2.powi(2)).sqrt();
                 ssig12 = sig12.sin();
                 csig12 = sig12.cos();
             }
         };
         ssig2 = self._ssig1 * csig12 + self._csig1 * ssig12;
         csig2 = self._csig1 * csig12 - self._ssig1 * ssig12;
-        let dn2 = (1.0 + self._k2 * geomath::sq(ssig2)).sqrt();
+        let dn2 = (1.0 + self._k2 * ssig2.powi(2)).sqrt();
         if outmask & (caps::DISTANCE | caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
             if arcmode || self.f.abs() > 0.01 {
                 B12 = geomath::sin_cos_series(true, ssig2, csig2, &self._C1a);
@@ -341,7 +341,7 @@ impl GeodesicLine {
                     } else {
                         ssig12 * (self._csig1 * ssig12 / (1.0 + csig12) + self._ssig1)
                     });
-                calp12 = geomath::sq(self._salp0) + geomath::sq(self._calp0) * self._csig1 * csig2;
+                calp12 = self._salp0.powi(2) + self._calp0.powi(2) * self._csig1 * csig2;
             }
             S12 = self._c2 * salp12.atan2(calp12) + self._A4 * (B42 - self._B41);
         }

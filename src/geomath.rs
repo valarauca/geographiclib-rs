@@ -5,27 +5,6 @@ use crate::internals::utils::{sum_fourier_fast,constant_polyval};
 use crate::internals::subarray::SubArray;
 use crate::internals::constants::{C1F_COEFF,C2F_COEFF,C1PF_COEFF,COEFF_SIZE};
 
-// Square
-pub fn sq(x: f64) -> f64 {
-    x.powi(2)
-}
-
-// We use the built-in impl (f64::cbrt) rather than this.
-// Real cube root
-pub fn cbrt(x: f64) -> f64 {
-    // y = math.pow(abs(x), 1/3.0)
-    let y = x.abs().powf(1.0 / 3.0);
-
-    // return y if x > 0 else (-y if x < 0 else x)
-    if x > 0.0 {
-        y
-    } else if x < 0.0 {
-        -y
-    } else {
-        x
-    }
-}
-
 // Normalize a two-vector
 pub fn norm(x: &mut f64, y: &mut f64) {
     let r = x.hypot(*y);
@@ -53,7 +32,7 @@ pub fn polyval(n: usize, p: &[f64], x: f64) -> f64 {
     y
 }
 
-// Round an angle so taht small values underflow to 0
+// Round an angle so that small values underflow to 0
 pub fn ang_round(x: f64) -> f64 {
     // The makes the smallest gap in x = 1/16 - nextafter(1/16, 0) = 1/2^57
     // for reals = 0.7 pm on the earth if x is an angle in degrees.  (This
@@ -217,28 +196,28 @@ pub fn sin_cos_series(sinp: bool, sinx: f64, cosx: f64, c: &[f64]) -> f64 {
 
 // Solve astroid equation
 pub fn astroid(x: f64, y: f64) -> f64 {
-    let p = sq(x);
-    let q = sq(y);
+    let p = x.powi(2);
+    let q = y.powi(2);
     let r = (p + q - 1.0) / 6.0;
     if !(q == 0.0 && r <= 0.0) {
         let s = p * q / 4.0;
-        let r2 = sq(r);
+        let r2 = r.powi(2);
         let r3 = r * r2;
         let disc = s * (s + 2.0 * r3);
         let mut u = r;
         if disc >= 0.0 {
             let mut t3 = s + r3;
-            t3 += if t3 < 0.0 { -disc.sqrt() } else { disc.sqrt() };
-            let t = cbrt(t3); // we could use built-in T.cbrt
+            t3 += disc.sqrt().copysign(t3);
+            let t = t3.cbrt();
             u += t + if t != 0.0 { r2 / t } else { 0.0 };
         } else {
             let ang = (-disc).sqrt().atan2(-(s + r3));
             u += 2.0 * r * (ang / 3.0).cos();
         }
-        let v = (sq(u) + q).sqrt();
+        let v = (u.powi(2) + q).sqrt();
         let uv = if u < 0.0 { q / (v - u) } else { u + v };
         let w = (uv - q) / (2.0 * v);
-        uv / ((uv + sq(w)).sqrt() + w)
+        uv / ((uv + w.powi(2)).sqrt() + w)
     } else {
         0.0
     }
