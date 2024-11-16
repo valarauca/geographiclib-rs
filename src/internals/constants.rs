@@ -44,12 +44,18 @@ pub (in crate) const COEFF_SIZE: usize = 18_usize;
 
 /// Fourier constants for C1 equation
 pub (in crate) const C1F_COEFF: [f64; COEFF_SIZE] = [
-    -1.0, 6.0, -16.0,
-    32.0, -9.0, 64.0,
-    -128.0, 2048.0, 9.0,
-    -16.0, 768.0, 3.0,
-    -5.0, 512.0, -7.0,
-    1280.0, -7.0, 2048.0,
+    // C1[1]/eps^1 
+    -1.0, 6.0, -16.0,32.0, 
+    // C2[2]/eps^2 
+    -9.0, 64.0, -128.0, 2048.0,
+    // C3[3]/eps^3 
+     9.0, -16.0, 768.0,
+    // C4[4]/eps^4 
+     3.0, -5.0, 512.0,
+    // C5[5]/eps^5 
+     -7.0, 1280.0,
+    // C6[5]/eps^5 
+     -7.0, 2048.0,
 ];
 
 /// Fourier constants for C2 equation
