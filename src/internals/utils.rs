@@ -29,3 +29,4 @@ pub (in crate) fn sum_fourier_fast(epsilon: f64, params: &[f64;18]) -> [f64;7] {
         epsilon6 * constant_polyval::<0, {18 - 16}>(&params[SubArray::<{18 - 16}, 16>], epsilon2) / params[17],
     ]
 }
+

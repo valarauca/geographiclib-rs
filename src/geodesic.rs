@@ -209,6 +209,8 @@ impl Geodesic {
         C1a: &mut [f64],
         C2a: &mut [f64],
     ) -> (f64, f64, f64, f64, f64) {
+        use crate::internals::constants::{C1F_COEFF,C2F_COEFF};
+
         let outmask = outmask & caps::OUT_MASK;
         let mut s12b = f64::NAN;
         let mut m12b = f64::NAN;
@@ -223,25 +225,23 @@ impl Geodesic {
 
         if outmask & (caps::DISTANCE | caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
             A1 = geomath::_A1m1f(eps, self.GEODESIC_ORDER);
-            geomath::_C1f(eps, C1a, self.GEODESIC_ORDER);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
                 A2 = geomath::_A2m1f(eps, self.GEODESIC_ORDER);
-                geomath::_C2f(eps, C2a, self.GEODESIC_ORDER);
                 m0x = A1 - A2;
                 A2 += 1.0;
             }
             A1 += 1.0;
         }
         if outmask & caps::DISTANCE != 0 {
-            let B1 = geomath::sin_cos_series(true, ssig2, csig2, C1a)
-                - geomath::sin_cos_series(true, ssig1, csig1, C1a);
+            let B1 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C1F_COEFF);
             s12b = A1 * (sig12 + B1);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                let B2 = geomath::sin_cos_series(true, ssig2, csig2, C2a)
-                    - geomath::sin_cos_series(true, ssig1, csig1, C2a);
+                let B2 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C2F_COEFF);
                 J12 = m0x * sig12 + (A1 * B1 - A2 * B2);
             }
         } else if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
+            geomath::_C1f(eps, C1a, self.GEODESIC_ORDER);
+            geomath::_C2f(eps, C2a, self.GEODESIC_ORDER);
             for l in 1..=self.GEODESIC_ORDER {
                 C2a[l] = A1 * C1a[l] - A2 * C2a[l];
             }
