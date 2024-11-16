@@ -79,8 +79,11 @@ pub use geodesic::{DirectGeodesic, Geodesic, InverseGeodesic};
 pub mod geodesic_capability;
 pub use geodesic_capability as capability;
 
+
 mod geodesic_line;
 mod geomath;
 mod polygon_area;
 pub use polygon_area::PolygonArea;
 pub use polygon_area::Winding;
+
+mod internals;
