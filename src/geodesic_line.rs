@@ -86,10 +86,7 @@ impl GeodesicLine {
         };
         let lat1 = geomath::lat_fix(lat1);
 
-        let (mut sbet1, mut cbet1) = geomath::sincosd(geomath::ang_round(lat1));
-        sbet1 *= _f1;
-        geomath::norm(&mut sbet1, &mut cbet1);
-        cbet1 = TINY.max(cbet1);
+        let (sbet1, cbet1) = geod.sincosd_for_ellipsoid(geomath::ang_round(lat1));
         let _dn1 = (1.0 + geod._ep2 * sbet1.powi(2)).sqrt();
         let _salp0 = salp1 * cbet1;
         let _calp0 = calp1.hypot(salp1 * sbet1);
@@ -102,8 +99,11 @@ impl GeodesicLine {
         };
         let _comg1 = _csig1;
         geomath::norm(&mut _ssig1, &mut _csig1);
+        let (_k2, eps) = geod.local_curvature(_calp0);
+        /*
         let _k2 = _calp0.powi(2) * geod._ep2;
         let eps = _k2 / (2.0 * (1.0 + (1.0 + _k2).sqrt()) + _k2);
+        */
 
         let mut _A1m1 = 0.0;
         let mut _C1a: [f64; GEODESIC_ORDER + 1] = [0.0; GEODESIC_ORDER + 1];

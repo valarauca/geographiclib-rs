@@ -8,6 +8,9 @@ use crate::cached_weights::{Weights};
 use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
 use std::sync;
 
+#[cfg(test)]
+use approx::assert_relative_eq;
+
 use std::sync::Arc;
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
@@ -98,6 +101,23 @@ impl Geodesic {
         }
     }
 
+    pub (in crate) fn sincosd_for_ellipsoid(&self, ang: f64) -> (f64,f64) {
+        let (mut sin,mut cos) = geomath::sincosd(ang);
+        sin *= self._f1;
+        geomath::norm(&mut sin, &mut cos);
+        cos = TINY.max(cos);
+        (sin,cos)
+    }
+
+    /// calculate k2 and epsilon for usage in power series to approximate
+    /// the values of integration
+    #[inline(always)]
+    pub (in crate) fn local_curvature(&self, value: f64) -> (f64,f64) {
+        let k2 = value.powi(2) * self._ep2;
+        let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
+        (k2, eps)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn _Lengths(
         &self,
@@ -152,6 +172,8 @@ impl Geodesic {
         }
         if outmask & caps::GEODESICSCALE != 0 {
             let csig12 = csig1 * csig2 + ssig1 * ssig2;
+            #[cfg(test)]
+            assert_relative_eq!(sig12.cos(), csig12, epsilon = 1e-13f64);
             let t = self._ep2 * (cbet1 - cbet2) * (cbet1 + cbet2) / (dn1 + dn2);
             M12 = csig12 + (t * ssig2 - csig2 * J12) * ssig1 / dn1;
             M21 = csig12 - (t * ssig1 - csig1 * J12) * ssig2 / dn2;
@@ -233,8 +255,7 @@ impl Geodesic {
             let lamscale: f64;
             let lam12x = (-slam12).atan2(-clam12);
             if self.f >= 0.0 {
-                let k2 = sbet1.powi(2) * self._ep2;
-                let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
+                let (_,eps) = self.local_curvature(sbet1);
                 lamscale = self.f * cbet1 * self._A3f(eps) * PI;
                 betscale = lamscale * cbet1;
                 x = lam12x / lamscale;
@@ -303,14 +324,16 @@ impl Geodesic {
         cbet2: f64,
         dn2: f64,
         salp1: f64,
-        mut calp1: f64,
+        calp1: f64,
         slam120: f64,
         clam120: f64,
         diffp: bool,
     ) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
-        if sbet1 == 0.0 && calp1 == 0.0 {
-            calp1 = -TINY;
-        }
+        let calp1 = if sbet1 == 0.0 && calp1 == 0.0 {
+            -TINY
+        } else {
+            calp1
+        };
         let salp0 = salp1 * cbet1;
         let calp0 = calp1.hypot(salp1 * sbet1);
 
@@ -344,16 +367,14 @@ impl Geodesic {
         let comg12 = comg1 * comg2 + somg1 * somg2;
         let eta = (somg12 * clam120 - comg12 * slam120).atan2(comg12 * clam120 + somg12 * slam120);
 
-        let k2 = calp0.powi(2) * self._ep2;
-        let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
+        let (_,eps) = self.local_curvature(calp0);
         let B312 = self.weights.c3x_difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2);
         let domg12 = -self.f * self._A3f(eps) * salp0 * (sig12 + B312);
         let lam12 = eta + domg12;
 
-        let mut dlam12: f64;
-        if diffp {
+        let dlam12 = if diffp {
             if calp2 == 0.0 {
-                dlam12 = -2.0 * self._f1 * dn1 / sbet1;
+                -2.0 * self._f1 * dn1 / sbet1
             } else {
                 let (m12b,_) = self.weights.reduced_lengths(
                     eps,
@@ -365,12 +386,11 @@ impl Geodesic {
                     csig2,
                     dn2,
                 );
-                dlam12 = m12b;
-                dlam12 *= self._f1 / (calp2 * cbet2);
+                m12b * (self._f1 / (calp2 * cbet2))
             }
         } else {
-            dlam12 = f64::NAN;
-        }
+            f64::NAN
+        };
         (
             lam12, salp2, calp2, sig12, ssig1, csig1, ssig2, csig2, eps, domg12, dlam12,
         )
@@ -447,17 +467,21 @@ impl Geodesic {
         lat1 *= latsign;
         lat2 *= latsign;
 
+        /*
         let (mut sbet1, mut cbet1) = geomath::sincosd(lat1);
         sbet1 *= self._f1;
-
         geomath::norm(&mut sbet1, &mut cbet1);
         cbet1 = cbet1.max(TINY);
+        */
+        let (sbet1, cbet1) = self.sincosd_for_ellipsoid(lat1);
 
+        /*
         let (mut sbet2, mut cbet2) = geomath::sincosd(lat2);
         sbet2 *= self._f1;
-
         geomath::norm(&mut sbet2, &mut cbet2);
         cbet2 = cbet2.max(TINY);
+        */
+        let (mut sbet2, mut cbet2) = self.sincosd_for_ellipsoid(lat2);
 
         if cbet1 < -sbet1 {
             if cbet2 == cbet1 {
@@ -674,8 +698,7 @@ impl Geodesic {
                 csig1 = calp1 * cbet1;
                 ssig2 = sbet2;
                 csig2 = calp2 * cbet2;
-                let k2 = calp0.powi(2) * self._ep2;
-                eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
+                (_,eps) = self.local_curvature(calp0);
                 let A4 = self.a.powi(2) * calp0 * salp0 * self._e2;
                 geomath::norm(&mut ssig1, &mut csig1);
                 geomath::norm(&mut ssig2, &mut csig2);
