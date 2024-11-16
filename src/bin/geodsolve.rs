@@ -6,7 +6,7 @@ use geographiclib_rs::{DirectGeodesic, Geodesic, InverseGeodesic};
 use std::error::Error;
 
 struct Runner {
-    geod: Geodesic,
+    geod: &'static Geodesic,
     is_full_output: bool,
     is_inverse: bool,
     input_filename: Option<String>,
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 impl Runner {
     pub fn new(
-        geod: Geodesic,
+        geod: &'static Geodesic,
         is_full_output: bool,
         is_inverse: bool,
         input_filename: Option<String>,

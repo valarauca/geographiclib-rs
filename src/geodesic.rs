@@ -4,13 +4,14 @@
 use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
+use crate::cached_weights::{Weights};
 use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
 use std::sync;
 
-
+use std::sync::Arc;
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Debug)]
 pub struct Geodesic {
     pub a: f64,
     pub f: f64,
@@ -21,16 +22,14 @@ pub struct Geodesic {
     pub _b: f64,
     pub _c2: f64,
     _etol2: f64,
-    _A3x: [f64; GEODESIC_ORDER],
-    _C3x: [f64; _nC3x_],
-    _C4x: [f64; _nC4x_],
+    weights: Arc<Weights>,
 }
 
 static WGS84_GEOD: sync::OnceLock<Geodesic> = sync::OnceLock::new();
 
 impl Geodesic {
-    pub fn wgs84() -> Self {
-        *WGS84_GEOD.get_or_init(|| Geodesic::new(WGS84_A, WGS84_F))
+    pub fn wgs84() -> &'static Self {
+        WGS84_GEOD.get_or_init(|| Geodesic::new(WGS84_A, WGS84_F))
     }
 
     pub fn equatorial_radius(&self) -> f64 {
@@ -87,41 +86,7 @@ impl Geodesic {
             / 2.0;
         let _etol2 = 0.1 * TOL2 / (f.abs().max(0.001) * (1.0 - f / 2.0).min(1.0) / 2.0).sqrt();
 
-        let mut _A3x: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
-        let mut _C3x: [f64; _nC3x_] = [0.0; _nC3x_];
-        let mut _C4x: [f64; _nC4x_] = [0.0; _nC4x_];
-
-        // Call a3coeff
-        let mut o: usize = 0;
-        for (k, j) in (0..GEODESIC_ORDER).rev().enumerate() {
-            let m = j.min(GEODESIC_ORDER - j - 1);
-            _A3x[k] = geomath::polyval(m, &COEFF_A3[o..], _n) / COEFF_A3[o + m + 1];
-            o += m + 2;
-        }
-
-        // c3coeff
-        let mut o = 0;
-        let mut k = 0;
-        for l in 1..GEODESIC_ORDER {
-            for j in (l..GEODESIC_ORDER).rev() {
-                let m = j.min(GEODESIC_ORDER - j - 1);
-                _C3x[k] = geomath::polyval(m, &COEFF_C3[o..], _n) / COEFF_C3[o + m + 1];
-                k += 1;
-                o += m + 2;
-            }
-        }
-
-        // c4coeff
-        let mut o = 0;
-        let mut k = 0;
-        for l in 0..GEODESIC_ORDER {
-            for j in (l..GEODESIC_ORDER).rev() {
-                let m = GEODESIC_ORDER - j - 1;
-                _C4x[k] = geomath::polyval(m, &COEFF_C4[o..], _n) / COEFF_C4[o + m + 1];
-                k += 1;
-                o += m + 2;
-            }
-        }
+        let weights = Arc::new(Weights::new(_n));
 
         Geodesic {
             a,
@@ -133,41 +98,29 @@ impl Geodesic {
             _b,
             _c2,
             _etol2,
-            _A3x,
-            _C3x,
-            _C4x,
+            weights, 
         }
     }
 
     pub fn _A3f(&self, eps: f64) -> f64 {
-        geomath::polyval(GEODESIC_ORDER - 1, &self._A3x, eps)
+        self.weights.a3f(eps)
     }
 
     pub fn _C3f(&self, eps: f64, c: &mut [f64]) {
-        let mut mult = 1.0;
-        let mut o = 0;
+        let out = self.weights.c3f(eps);
         // Clippy wants us to turn this into `c.iter_mut().enumerate().take(geodesic_order + 1).skip(1)`
         // but benching (rust-1.75) shows that it would be slower.
         #[allow(clippy::needless_range_loop)]
         for l in 1..GEODESIC_ORDER {
-            let m = GEODESIC_ORDER - l - 1;
-            mult *= eps;
-            c[l] = mult * geomath::polyval(m, &self._C3x[o..], eps);
-            o += m + 1;
+            c[l] = out[l];
         }
     }
 
     pub fn _C4f(&self, eps: f64, c: &mut [f64]) {
-        let mut mult = 1.0;
-        let mut o = 0;
-        // Clippy wants us to turn this into `c.iter_mut().enumerate().take(geodesic_order + 1).skip(1)`
-        // but benching (rust-1.75) shows that it would be slower.
+        let out = self.weights.c4f(eps);
         #[allow(clippy::needless_range_loop)]
         for l in 0..GEODESIC_ORDER {
-            let m = GEODESIC_ORDER - l - 1;
-            c[l] = mult * geomath::polyval(m, &self._C4x[o..], eps);
-            o += m + 1;
-            mult *= eps;
+            c[l] = out[l];
         }
     }
 
@@ -201,9 +154,9 @@ impl Geodesic {
         let mut J12 = 0.0;
 
         if outmask & (caps::DISTANCE | caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            A1 = geomath::_A1m1f(eps, GEODESIC_ORDER);
+            A1 = self.weights.get_a1m1f(eps);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                A2 = geomath::_A2m1f(eps, GEODESIC_ORDER);
+                A2 = self.weights.get_a2m1f(eps);
                 m0x = A1 - A2;
                 A2 += 1.0;
             }
@@ -221,7 +174,6 @@ impl Geodesic {
         }
         if outmask & caps::REDUCEDLENGTH != 0 {
             m0 = m0x;
-            // J12 is wrong
             m12b = dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * J12;
         }
         if outmask & caps::GEODESICSCALE != 0 {
@@ -384,7 +336,6 @@ impl Geodesic {
         slam120: f64,
         clam120: f64,
         diffp: bool,
-        C3a: &mut [f64],
     ) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
         if sbet1 == 0.0 && calp1 == 0.0 {
             calp1 = -TINY;
@@ -424,9 +375,7 @@ impl Geodesic {
 
         let k2 = geomath::sq(calp0) * self._ep2;
         let eps = k2 / (2.0 * (1.0 + (1.0 + k2).sqrt()) + k2);
-        self._C3f(eps, C3a);
-        let B312 = geomath::sin_cos_series(true, ssig2, csig2, C3a)
-            - geomath::sin_cos_series(true, ssig1, csig1, C3a);
+        let B312 = self.weights.c3x_difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2);
         let domg12 = -self.f * self._A3f(eps) * salp0 * (sig12 + B312);
         let lam12 = eta + domg12;
 
@@ -553,7 +502,7 @@ impl Geodesic {
         let dn1 = (1.0 + self._ep2 * geomath::sq(sbet1)).sqrt();
         let dn2 = (1.0 + self._ep2 * geomath::sq(sbet2)).sqrt();
 
-        let mut C3a: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
+        //let mut C3a: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
 
         let mut meridian = lat1 == -90.0 || slam12 == 0.0;
         let mut calp1 = 0.0;
@@ -673,7 +622,6 @@ impl Geodesic {
                         slam12,
                         clam12,
                         numit < ITERATIONS,
-                        &mut C3a,
                     );
                     let v = res.0;
                     salp2 = res.1;
@@ -1681,7 +1629,6 @@ mod tests {
             0.01745240643728351,
             0.9998476951563913,
             true,
-            &mut [0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
         );
         assert_eq!(res1.0, 1.4834408705897495e-09);
         assert_eq!(res1.1, 0.7094236675312185);
@@ -1707,14 +1654,6 @@ mod tests {
             0.01745240643728351,
             0.9998476951563913,
             true,
-            &mut [
-                0.0,
-                0.00020861391868413911,
-                4.3547247296823945e-08,
-                1.515432276542012e-11,
-                6.645637323698485e-15,
-                3.3399223952510497e-18,
-            ],
         );
         assert_eq!(res2.0, 6.046459990680098e-17);
         assert_eq!(res2.1, 0.7094236375834774);
@@ -1870,7 +1809,7 @@ mod tests {
         assert_eq!(geod._c2, 40589732499314.76, "geod._c2 wrong");
         assert_eq!(geod._etol2, 3.6424611488788524e-08, "geod._etol2 wrong");
         assert_eq!(
-            geod._A3x,
+            geod.weights.a3x,
             [
                 -0.0234375,
                 -0.046927475637074494,
@@ -1883,7 +1822,7 @@ mod tests {
         );
 
         assert_eq!(
-            geod._C3x,
+            geod.weights.c3x,
             [
                 0.0234375,
                 0.03908873781853724,
@@ -1904,7 +1843,7 @@ mod tests {
             "geod._C3x wrong"
         );
         assert_eq!(
-            geod._C4x,
+            geod.weights.c4x,
             [
                 0.00646020646020646,
                 0.0035037627212872787,
