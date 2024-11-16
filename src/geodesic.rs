@@ -6,6 +6,8 @@ use crate::geodesic_line;
 use crate::geomath;
 use std::sync;
 
+use crate::internals::constants::{TOL0};
+
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
 pub const WGS84_A: f64 = 6378137.0;
@@ -36,7 +38,6 @@ pub struct Geodesic {
     maxit2_: u64,
 
     pub tiny_: f64,
-    tol0_: f64,
     tol1_: f64,
     _tol2_: f64,
     tolb_: f64,
@@ -91,10 +92,9 @@ impl Geodesic {
         let maxit1_ = 20;
         let maxit2_ = maxit1_ + geomath::DIGITS + 10;
         let tiny_ = geomath::get_min_val().sqrt();
-        let tol0_ = geomath::get_epsilon();
-        let tol1_ = 200.0 * tol0_;
-        let _tol2_ = tol0_.sqrt();
-        let tolb_ = tol0_ * _tol2_;
+        let tol1_ = 200.0 * TOL0;
+        let _tol2_ = TOL0.sqrt();
+        let tolb_ = TOL0 * _tol2_;
         let xthresh_ = 1000.0 * _tol2_;
 
         let _f1 = 1.0 - f;
@@ -170,7 +170,6 @@ impl Geodesic {
             maxit2_,
 
             tiny_,
-            tol0_,
             tol1_,
             _tol2_,
             tolb_,
@@ -751,7 +750,7 @@ impl Geodesic {
                     let dv = res.10;
 
                     if tripb
-                        || v.abs() < if tripn { 8.0 } else { 1.0 } * self.tol0_
+                        || v.abs() < if tripn { 8.0 } else { 1.0 } * TOL0
                         || v.abs().is_nan()
                     {
                         break;
@@ -772,7 +771,7 @@ impl Geodesic {
                             calp1 = calp1 * cdalp1 - salp1 * sdalp1;
                             salp1 = nsalp1;
                             geomath::norm(&mut salp1, &mut calp1);
-                            tripn = v.abs() <= 16.0 * self.tol0_;
+                            tripn = v.abs() <= 16.0 * TOL0;
                             continue;
                         }
                     }
