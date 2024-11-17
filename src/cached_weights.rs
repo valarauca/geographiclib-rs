@@ -6,7 +6,7 @@ use crate::{
         polyval,
     },
     internals::{
-        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF},
+        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF,COEFF_SIZE},
         subarray::{SubArray},
         utils::{constant_polyval,sum_fourier_fast},
     },
@@ -41,6 +41,23 @@ pub (in crate) struct Weights {
     c1f_fixed: [f64;7],
     c2f_fixed: [f64;7],
 }
+
+pub (in crate) trait CoefficientSelection {
+    const C1F_COEFF: bool;
+    const DATA: [f64; COEFF_SIZE];
+}
+pub (in crate) struct C1fCoeff;
+impl CoefficientSelection for C1fCoeff {
+    const C1F_COEFF: bool = true;
+    const DATA: [f64;COEFF_SIZE] = C1F_COEFF;
+}
+pub (in crate) struct C2fCoeff;
+impl CoefficientSelection for C2fCoeff {
+    const C1F_COEFF: bool = false;
+    const DATA: [f64;COEFF_SIZE] = C2F_COEFF;
+}
+
+
 impl Weights {
     pub (in crate) fn new(third_flattening: f64) -> Self {
 
@@ -145,6 +162,66 @@ impl Weights {
         c[5] = m * constant_polyval::<0, {nC3x - 14}>(&c3x[SubArray::<{nC3x - 14}, 14>], epsilon);
         c
     }
+
+    #[inline(always)]
+    pub (in crate) fn difference_of_meridian_arc_lengths<C>(
+        &self,
+        epsilon: f64,
+        sine_sigma_1: f64, cosine_sigma_1: f64,
+        sine_sigma_2: f64, cosine_sigma_2: f64,
+    ) -> f64
+    where
+        C: CoefficientSelection,
+    {
+        let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+        let seed2: f64 = 2.0_f64 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
+
+        let weights = if epsilon == self.third_flattening {
+            if C::C1F_COEFF {
+                self.c1f_fixed.clone()
+            } else {
+                self.c2f_fixed.clone()
+            }
+        } else {
+            sum_fourier_fast(epsilon, &C::DATA)
+        };
+
+        // initialized these with zero
+        let y1_0 = 0.0_f64;
+        let y1_1 = 0.0_f64;
+        let y2_0 = 0.0_f64;
+        let y2_1 = 0.0_f64;
+
+        let arr_6 = weights[6];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_6;
+
+        let arr_5 = weights[5];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_5;
+
+        let arr_4 = weights[4];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_4;
+
+        let arr_3 = weights[3];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_3;
+
+        let arr_2 = weights[2];
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_2;
+
+        let arr_1 = weights[1];
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_1;
+
+        let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
+        let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
+
+        sine_series_2 - sine_series_1
+    }
+
 
     // calculates the result of I₃(σ₂) - I₃(σ₁), where I₃(σ) is equation 25
     // see: 

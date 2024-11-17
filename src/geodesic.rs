@@ -4,8 +4,9 @@
 use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
-use crate::cached_weights::{Weights};
+use crate::cached_weights::{Weights,C1fCoeff,C2fCoeff};
 use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
+use crate::lengths::{LengthsReturnValue, self as Lengths};
 use std::sync;
 
 #[cfg(test)]
@@ -118,6 +119,22 @@ impl Geodesic {
         (k2, eps)
     }
 
+    fn lengths_v2<O: LengthsReturnValue>(
+        &self,
+        eps: f64,
+        sig12: f64,
+        ssig1: f64,
+        csig1: f64,
+        dn1: f64,
+        ssig2: f64,
+        csig2: f64,
+        dn2: f64,
+        cbet1: f64,
+        cbet2: f64,
+    ) -> O {
+        O::invoke(&self.weights, self._ep2, eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn _Lengths(
         &self,
@@ -157,14 +174,15 @@ impl Geodesic {
             A1 += 1.0;
         }
         if outmask & caps::DISTANCE != 0 {
-            let B1 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C1F_COEFF);
+            //let B1 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C1F_COEFF);
+            let B1 = self.weights.difference_of_meridian_arc_lengths::<C1fCoeff>(eps, ssig1, csig1, ssig2, csig2);
             s12b = A1 * (sig12 + B1);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                let B2 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C2F_COEFF);
+                let B2 = self.weights.difference_of_meridian_arc_lengths::<C2fCoeff>(eps, ssig1, csig1, ssig2, csig2);
                 J12 = m0x * sig12 + (A1 * B1 - A2 * B2);
             }
         } else if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            J12 = m0x * sig12 + geomath::equation_40(eps, ssig1, csig1, ssig2, csig2, A1, A2);
+            J12 = m0x * sig12 + self.weights.equation_40(eps, ssig1, csig1, ssig2, csig2, A1, A2);
         }
         if outmask & caps::REDUCEDLENGTH != 0 {
             m0 = m0x;
@@ -268,7 +286,8 @@ impl Geodesic {
             } else {
                 let cbet12a = cbet2 * cbet1 - sbet2 * sbet1;
                 let bet12a = sbet12a.atan2(cbet12a);
-                let (m12b, m0) = self.weights.reduced_lengths(
+
+                let out = self.lengths_v2::<Lengths::ReducedLengths>(
                     self._n,
                     PI + bet12a,
                     sbet1,
@@ -277,7 +296,11 @@ impl Geodesic {
                     sbet2,
                     cbet2,
                     dn2,
+                    f64::NAN,
+                    f64::NAN,
                 );
+                let m12b = out.get_m12b();
+                let m0 = out.get_m0();
                 x = -1.0 + m12b / (cbet1 * cbet2 * m0 * PI);
                 betscale = if x < -0.01 {
                     sbet12a / x
@@ -511,6 +534,44 @@ impl Geodesic {
             csig2 = calp2 * cbet2;
 
             sig12 = ((csig1 * ssig2 - ssig1 * csig2).max(0.0)).atan2(csig1 * csig2 + ssig1 * ssig2);
+
+            if outmask & caps::GEODESICSCALE != 0 {
+                let out = self.lengths_v2::<Lengths::All>(
+                    self._n,
+                    sig12,
+                    ssig1,
+                    csig1,
+                    dn1,
+                    ssig2,
+                    csig2,
+                    dn2,
+                    cbet1,
+                    cbet2,
+                );
+                s12x = out.get_s12b();
+                m12x = out.get_m12b();
+                M12 = out.get_m12();
+                M21 = out.get_m21();
+
+            } else {
+                let out = self.lengths_v2::<Lengths::LengthsPlusDistance>(
+                    self._n,
+                    sig12,
+                    ssig1,
+                    csig1,
+                    dn1,
+                    ssig2,
+                    csig2,
+                    dn2,
+                    cbet1,
+                    cbet2,
+                );
+                s12x = out.get_s12b();
+                m12x = out.get_m12b();
+                M12 = out.get_m12();
+                M21 = out.get_m21();
+            }
+            /*
             let res = self._Lengths(
                 self._n,
                 sig12,
@@ -528,6 +589,7 @@ impl Geodesic {
             m12x = res.1;
             M12 = res.3;
             M21 = res.4;
+            */
 
             if sig12 < 1.0 || m12x >= 0.0 {
                 if sig12 < 3.0 * TINY {
@@ -664,6 +726,27 @@ impl Geodesic {
                 m12x = res.1;
                 M12 = res.3;
                 M21 = res.4;
+                /*
+                if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
+                    let out = self.lengths_v2::<Lengths::All>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2);
+                    s12x = out.get_s12b();
+                    m12x = out.get_m12b();
+                    M12 = out.get_m12();
+                    M21 = out.get_m21();
+                } else if outmask & caps::DISTANCE != 0 {
+                    let out = self.lengths_v2::<Lengths::Distance>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2);
+                    s12x = out.get_s12b();
+                    m12x = out.get_m12b();
+                    M12 = out.get_m12();
+                    M21 = out.get_m21();
+                } else {
+                    let out = self.lengths_v2::<Lengths::None>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2);
+                    s12x = out.get_s12b();
+                    m12x = out.get_m12b();
+                    M12 = out.get_m12();
+                    M21 = out.get_m21();
+                }
+                */
 
                 m12x *= self._b;
                 s12x *= self._b;

@@ -88,3 +88,4 @@ pub use polygon_area::Winding;
 
 mod internals;
 mod cached_weights;
+mod lengths;
