@@ -374,8 +374,8 @@ impl Weights {
         let b2_1 = 0.0_f64;
         */
       
-        let b1f = self.get_c1f::<W>(epsilon);
-        let b2f = self.get_c2f::<W>(epsilon);
+        //let b1f = self.get_c1f::<W>(epsilon);
+        //let b2f = self.get_c2f::<W>(epsilon);
         /*
         let mut b1f = [0.0f64;7];
         let mut b2f = [0.0f64;7];
