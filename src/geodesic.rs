@@ -4,7 +4,7 @@
 use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
-use crate::cached_weights::{Weights};
+use crate::cached_weights::{Weights,CheckThirdFlattening,AllWeightCaps,C1Coeff,C2Coeff};
 use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
 use std::sync;
 
@@ -148,23 +148,26 @@ impl Geodesic {
         let mut J12 = 0.0;
 
         if outmask & (caps::DISTANCE | caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            A1 = self.weights.get_a1m1f(eps);
+            A1 = self.weights.get_a1m1f::<AllWeightCaps>(eps);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                A2 = self.weights.get_a2m1f(eps);
+                A2 = self.weights.get_a2m1f::<AllWeightCaps>(eps);
                 m0x = A1 - A2;
                 A2 += 1.0;
             }
             A1 += 1.0;
         }
         if outmask & caps::DISTANCE != 0 {
-            let B1 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C1F_COEFF);
+            let B1 = self.weights.calc_bxf::<AllWeightCaps,C1Coeff>(eps, ssig1, csig1, ssig2, csig2);
+            //let B1 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C1F_COEFF);
             s12b = A1 * (sig12 + B1);
             if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                let B2 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C2F_COEFF);
+                let B2 = self.weights.calc_bxf::<AllWeightCaps,C2Coeff>(eps, ssig1, csig1, ssig2, csig2);
+                //let B2 = geomath::difference_of_meridian_arc_lengths(eps, ssig1, csig1, ssig2, csig2, &C2F_COEFF);
                 J12 = m0x * sig12 + (A1 * B1 - A2 * B2);
             }
         } else if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-            J12 = m0x * sig12 + geomath::equation_40(eps, ssig1, csig1, ssig2, csig2, A1, A2);
+            J12 = m0x * sig12 + self.weights.equation_40::<AllWeightCaps>(eps, ssig1, csig1, ssig2, csig2, A1, A2);
+            //J12 = m0x * sig12 + geomath::equation_40(eps, ssig1, csig1, ssig2, csig2, A1, A2);
         }
         if outmask & caps::REDUCEDLENGTH != 0 {
             m0 = m0x;
@@ -268,7 +271,7 @@ impl Geodesic {
             } else {
                 let cbet12a = cbet2 * cbet1 - sbet2 * sbet1;
                 let bet12a = sbet12a.atan2(cbet12a);
-                let (m12b, m0) = self.weights.reduced_lengths(
+                let (m12b, m0) = self.weights.reduced_lengths::<CheckThirdFlattening::<AllWeightCaps>>(
                     self._n,
                     PI + bet12a,
                     sbet1,
@@ -381,7 +384,7 @@ impl Geodesic {
             if calp2 == 0.0 {
                 -2.0 * self._f1 * dn1 / sbet1
             } else {
-                let (m12b,_) = self.weights.reduced_lengths(
+                let (m12b,_) = self.weights.reduced_lengths::<AllWeightCaps>(
                     eps,
                     sig12,
                     ssig1,

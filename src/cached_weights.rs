@@ -6,7 +6,7 @@ use crate::{
         polyval,
     },
     internals::{
-        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF},
+        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF,COEFF_SIZE},
         subarray::{SubArray},
         utils::{constant_polyval,sum_fourier_fast},
     },
@@ -238,23 +238,91 @@ impl Weights {
      *
      */
 
-    pub (in crate) fn get_a1m1f(&self, epsilon: f64) -> f64 {
-        if epsilon == self.third_flattening {
+    #[inline(always)]
+    pub (in crate) fn get_a1m1f<W: WeightCaps>(&self, epsilon: f64) -> f64 {
+        if W::CHECK_THIRD_FLATTENING && epsilon == self.third_flattening {
             self.a1_fixed.clone()
         } else {
             _A1m1f(epsilon)
         }
     }
 
-    pub (in crate) fn get_a2m1f(&self, epsilon: f64) -> f64 {
-        if epsilon == self.third_flattening {
+    #[inline(always)]
+    pub (in crate) fn get_a2m1f<W: WeightCaps>(&self, epsilon: f64) -> f64 {
+        if W::CHECK_THIRD_FLATTENING && epsilon == self.third_flattening {
             self.a2_fixed.clone()
         } else {
             _A2m1f(epsilon)
         }
     }
 
-    pub (in crate) fn reduced_lengths(
+    #[inline(always)]
+    fn get_cXf<W: WeightCaps, C: Coeff>(&self, epsilon: f64) -> [f64;7] {
+        C::get_weights::<W>(epsilon, self.third_flattening, &self.c1f_fixed, &self.c2f_fixed)
+    }
+
+    #[inline(always)]
+    pub (in crate) fn get_c1f<W: WeightCaps>(&self, epsilon: f64) -> [f64;7] {
+        self.get_cXf::<W,C1Coeff>(epsilon)
+    }
+
+    #[inline(always)]
+    pub (in crate) fn get_c2f<W: WeightCaps>(&self, epsilon: f64) -> [f64;7] {
+        self.get_cXf::<W,C2Coeff>(epsilon)
+    }
+
+    #[inline(always)]
+    fn calc_bxf_idx<W: WeightCaps, C: Coeff, const IDX: usize>(&self, epsilon: f64) -> f64 {
+        C::get_weight::<W,IDX>(epsilon, self.third_flattening, &self.c1f_fixed, &self.c2f_fixed)
+    }
+
+    #[inline(always)]
+    pub (in crate) fn calc_bxf<W: WeightCaps, C: Coeff>(
+        &self, epsilon: f64,
+        sine_sigma_1: f64, cosine_sigma_1: f64,
+        sine_sigma_2: f64, cosine_sigma_2: f64,
+    ) -> f64 {
+        let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+        let seed2: f64 = 2.0_f64 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
+
+        // initialized these with zero
+        let y1_0 = 0.0_f64;
+        let y1_1 = 0.0_f64;
+        let y2_0 = 0.0_f64;
+        let y2_1 = 0.0_f64;
+
+        let arr_6 = self.calc_bxf_idx::<W,C,6>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_6;
+
+        let arr_5 = self.calc_bxf_idx::<W,C,5>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_5;
+
+        let arr_4 = self.calc_bxf_idx::<W,C,4>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_4;
+
+        let arr_3 = self.calc_bxf_idx::<W,C,3>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_3;
+
+        let arr_2 = self.calc_bxf_idx::<W,C,2>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
+        let y2_1 = seed2 * y2_0 - y2_1 + arr_2;
+
+        let arr_1 = self.calc_bxf_idx::<W,C,1>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
+        let y2_0 = seed2 * y2_1 - y2_0 + arr_1;
+
+        let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
+        let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
+
+        sine_series_2 - sine_series_1
+    }
+
+    #[inline(always)]
+    pub (in crate) fn reduced_lengths<W: WeightCaps>(
         &self,
         eps: f64,
         sig12: f64,
@@ -266,16 +334,12 @@ impl Weights {
         dn2: f64,
     ) -> (f64, f64) {
 
-        let (a1,a2) = if eps == self.third_flattening {
-                (self.a1_fixed.clone(), self.a2_fixed.clone())
-        } else {
-                (
-                    _A1m1f(eps),
-                    _A2m1f(eps)
-                )
-        };
+        let (a1,a2) = (
+            self.get_a1m1f::<W>(eps),
+            self.get_a2m1f::<W>(eps)
+        );
         let m0 = a1 - a2;
-        let j12 = m0 * sig12 + self.equation_40(eps, ssig1, csig1, ssig2, csig2, a1+1.0, a2+1.0);
+        let j12 = m0 * sig12 + self.equation_40::<W>(eps, ssig1, csig1, ssig2, csig2, a1+1.0, a2+1.0);
         let m12b = dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * j12;
         (m12b, m0)
     }
@@ -284,12 +348,13 @@ impl Weights {
     /// assumes the results of equation 42 are given to `a2`
     /// assumes the results of equation 17 are given to `a1`
     /// calculates the values of equation 18 & 43
-    pub (in crate) fn equation_40(
+    pub (in crate) fn equation_40<W: WeightCaps>(
         &self,
         epsilon: f64,
         sine_sigma_1: f64, cosine_sigma_1: f64,
         sine_sigma_2: f64, cosine_sigma_2: f64,
         a1: f64, a2: f64,
+        //mox: f64, sig
     ) -> f64 {
         // these values remain fixed for the entire calculation
         let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
@@ -297,41 +362,198 @@ impl Weights {
     
     
         // initialized these with zero
-        let y1_0 = 0.0_f64;
-        let y1_1 = 0.0_f64;
-        let y2_0 = 0.0_f64;
-        let y2_1 = 0.0_f64;
-        
-        let (c1f,c2f) = if epsilon == self.third_flattening {
-            (self.c1f_fixed.clone(), self.c2f_fixed.clone())
+        let j1_0 = 0.0_f64;
+        let j1_1 = 0.0_f64;
+        let j2_0 = 0.0_f64;
+        let j2_1 = 0.0_f64;
+
+        /*
+        let b1_0 = 0.0_f64;
+        let b1_1 = 0.0_f64;
+        let b2_0 = 0.0_f64;
+        let b2_1 = 0.0_f64;
+        */
+      
+        let b1f = self.get_c1f::<W>(epsilon);
+        let b2f = self.get_c2f::<W>(epsilon);
+        /*
+        let mut b1f = [0.0f64;7];
+        let mut b2f = [0.0f64;7];
+        if epsilon == self.third_flattening {
+            b1f.clone_from(&self.c1f_fixed);
+            b1f.clone_from(&self.c2f_fixed);
         } else {
-            (
-                sum_fourier_fast(epsilon, &C1F_COEFF),
-                sum_fourier_fast(epsilon, &C2F_COEFF),
-            )
-        };
-        let arr_6 = a1 * c1f[6] - a2 * c2f[6];
-        let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
-        let y2_1 = seed2 * y2_0 - y2_1 + arr_6;
-        let arr_5 = a1 * c1f[5] - a2 * c2f[5];
-        let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
-        let y2_0 = seed2 * y2_1 - y2_0 + arr_5;
-        let arr_4 = a1 * c1f[4] - a2 * c2f[4];
-        let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
-        let y2_1 = seed2 * y2_0 - y2_1 + arr_4;
-        let arr_3 = a1 * c1f[3] - a2 * c2f[3];
-        let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
-        let y2_0 = seed2 * y2_1 - y2_0 + arr_3;
-        let arr_2 = a1 * c1f[2] - a2 * c2f[2];
-        let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
-        let y2_1 = seed2 * y2_0 - y2_1 + arr_2;
-        let arr_1 = a1 * c1f[1] - a2 * c2f[1];
-        let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
-        let y2_0 = seed2 * y2_1 - y2_0 + arr_1;
+            b1f = sum_fourier_fast(epsilon, &C1F_COEFF);
+            b2f = sum_fourier_fast(epsilon, &C2F_COEFF);
+        }
+        */
+        /*
+        let b1_1 = seed1 * b1_0 - b1_1 + b1f[6];
+        let b2_1 = seed2 * b2_0 - b2_1 + b1f[6];
+        let b1_0 = seed1 * b1_1 - b1_0 + b1f[5];
+        let b2_0 = seed2 * b2_1 - b2_0 + b1f[5];
+        let b1_1 = seed1 * b1_0 - b1_1 + b1f[4];
+        let b2_1 = seed2 * b2_0 - b2_1 + b1f[4];
+        let b1_0 = seed1 * b1_1 - b1_0 + b1f[3];
+        let b2_0 = seed2 * b2_1 - b2_0 + b1f[3];
+        let b1_1 = seed1 * b1_0 - b1_1 + b1f[2];
+        let b2_1 = seed2 * b2_0 - b2_1 + b1f[2];
+        let b1_0 = seed1 * b1_1 - b1_0 + b1f[1];
+        let b2_0 = seed2 * b2_1 - b2_0 + b1f[1];
+        let b1_sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * j1_0;
+        let b1_sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * j2_0;
+        let b1 =  b1_sine_series_2 - b1_sine_series_1
+        */
+
+
+        let arr_6 = a1 * self.calc_bxf_idx::<W,C1Coeff,6>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,6>(epsilon);
+        let j1_1 = seed1 * j1_0 - j1_1 + arr_6;
+        let j2_1 = seed2 * j2_0 - j2_1 + arr_6;
+        let arr_5 = a1 * self.calc_bxf_idx::<W,C1Coeff,5>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,5>(epsilon);
+        let j1_0 = seed1 * j1_1 - j1_0 + arr_5;
+        let j2_0 = seed2 * j2_1 - j2_0 + arr_5;
+        let arr_4 = a1 * self.calc_bxf_idx::<W,C1Coeff,4>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,4>(epsilon);
+        let j1_1 = seed1 * j1_0 - j1_1 + arr_4;
+        let j2_1 = seed2 * j2_0 - j2_1 + arr_4;
+        let arr_3 = a1 * self.calc_bxf_idx::<W,C1Coeff,3>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,3>(epsilon);
+        let j1_0 = seed1 * j1_1 - j1_0 + arr_3;
+        let j2_0 = seed2 * j2_1 - j2_0 + arr_3;
+        let arr_2 = a1 * self.calc_bxf_idx::<W,C1Coeff,2>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,2>(epsilon);
+        let j1_1 = seed1 * j1_0 - j1_1 + arr_2;
+        let j2_1 = seed2 * j2_0 - j2_1 + arr_2;
+        let arr_1 = a1 * self.calc_bxf_idx::<W,C1Coeff,1>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,1>(epsilon);
+        let j1_0 = seed1 * j1_1 - j1_0 + arr_1;
+        let j2_0 = seed2 * j2_1 - j2_0 + arr_1;
     
-        let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
-        let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
+        let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * j1_0;
+        let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * j2_0;
     
         sine_series_2 - sine_series_1
     }
 }
+
+pub (in crate) trait WeightCaps {
+    const C1: bool = false;
+    const C1P: bool = false;
+    const C2: bool = false;
+    const C3: bool = false;
+    const C4: bool = false;
+    const CHECK_THIRD_FLATTENING: bool = false;
+}
+
+pub (in crate) struct AllWeightCaps;
+impl WeightCaps for AllWeightCaps {
+    const C1: bool = true;
+    const C1P: bool = true;
+    const C2: bool = true;
+    const C3: bool = true;
+    const C4: bool = true;
+    const CHECK_THIRD_FLATTENING: bool = false;
+}
+
+pub (in crate) struct CheckThirdFlattening<W: WeightCaps> {
+    _data: std::marker::PhantomData<W>,
+}
+impl<W: WeightCaps> WeightCaps for CheckThirdFlattening<W> {
+    const C1: bool = W::C1;
+    const C1P: bool = W::C1P;
+    const C2: bool = W::C2;
+    const C3: bool = W::C3;
+    const C4: bool = W::C4;
+    const CHECK_THIRD_FLATTENING: bool = true;
+}
+
+pub trait Coeff {
+    const IS_C1: bool;
+    const IS_C2: bool;
+    const DATA: [f64; 18];
+
+    #[inline(always)]
+    fn get_weights<W: WeightCaps>(
+        epsilon: f64,
+        third_flattening: f64,
+        c1f_fixed: &[f64;7],
+        c2f_fixed: &[f64;7],
+    ) -> [f64;7] {
+        let mut ret = [f64::NAN;7];
+        if W::C1 && Self::IS_C1 {
+            if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
+                ret.clone_from(c1f_fixed);
+            } else {
+                ret = sum_fourier_fast(epsilon, &Self::DATA);      
+            }
+        }
+        if W::C2 && Self::IS_C2 {
+            if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
+                ret.clone_from(c2f_fixed);
+            } else {
+                ret = sum_fourier_fast(epsilon, &Self::DATA);      
+            }
+        }
+        ret
+    }
+
+    #[inline(always)]
+    fn get_weight<W: WeightCaps, const IDX: usize>(
+        epsilon: f64,
+        third_flattening: f64,
+        c1f_fixed: &[f64;7],
+        c2f_fixed: &[f64;7],
+    ) -> f64 {
+
+        if IDX >= 7 && IDX == 0 {
+            panic!("invalid range");
+        }
+
+        if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
+            let arm: &[f64;7] = {
+                if W::C1 && Self::IS_C1 {
+                    c1f_fixed
+                } else if W::C2 && Self::IS_C2 {
+                    c2f_fixed
+                } else {
+                    return f64::NAN;
+                }
+            };
+            return arm[IDX];
+        };
+
+        // should we not calculate this value?
+        if ! ( ( W::C1 && Self::IS_C1 ) || ( W::C2 && Self::IS_C2 ) ) {
+            return f64::NAN;
+        }
+
+        let epsilon2 = epsilon.powi(2);
+
+        if IDX == 6 {
+            epsilon.powi(6) * constant_polyval::<0, {COEFF_SIZE - 16}>(&Self::DATA[SubArray::<{COEFF_SIZE - 16}, 16>], epsilon2) / Self::DATA[17]
+        } else if IDX == 5 {
+            epsilon.powi(5) * constant_polyval::<0, {COEFF_SIZE - 14}>(&Self::DATA[SubArray::<{COEFF_SIZE - 14}, 14>], epsilon2) / Self::DATA[15]
+        } else if IDX == 4 {
+            epsilon.powi(4) * constant_polyval::<1, {COEFF_SIZE - 11}>(&Self::DATA[SubArray::<{COEFF_SIZE - 11}, 11>], epsilon2) / Self::DATA[13]
+        } else if IDX == 3 {
+            epsilon.powi(3) * constant_polyval::<1, {COEFF_SIZE -  8}>(&Self::DATA[SubArray::<{COEFF_SIZE - 8},   8>], epsilon2) / Self::DATA[10]
+        } else if IDX == 2 {
+            epsilon.powi(2) * constant_polyval::<2, {COEFF_SIZE -  4}>(&Self::DATA[SubArray::<{COEFF_SIZE - 4},   4>], epsilon2) / Self::DATA[ 7]
+        } else if IDX == 1 {
+            epsilon         * constant_polyval::<2, {COEFF_SIZE -  0}>(&Self::DATA,                                    epsilon2) / Self::DATA[ 3]
+        } else {
+            f64::NAN
+        }
+    }
+}
+
+pub struct C1Coeff;
+impl Coeff for C1Coeff {
+    const IS_C1: bool = true;
+    const IS_C2: bool = false;
+    const DATA: [f64;18] = C1F_COEFF;
+}
+
+pub struct C2Coeff;
+impl Coeff for C2Coeff {
+    const IS_C1: bool = false;
+    const IS_C2: bool = true;
+    const DATA: [f64;18] = C2F_COEFF;
+}
+
