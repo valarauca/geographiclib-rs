@@ -98,6 +98,30 @@ impl LengthsReturnValue for Distance {
     }
 }
 #[derive(Copy,Clone,Default)]
+pub struct DistancePlusScale {
+    s12b: f64,
+    m12: f64,
+    m21: f64,
+}
+impl LengthsReturnValue for DistancePlusScale {
+    const DISTANCE: bool = true;
+    const GEODESIC_SCALE: bool = true;
+
+    fn set_s12b(&mut self, s12b: f64) {
+        self.s12b = s12b;
+    }
+    fn set_m12(&mut self, m12: f64) { self.m12 = m12; }
+    fn set_m21(&mut self, m21: f64) { self.m21 = m21; }
+
+    fn get_s12b(&self) -> f64 { 
+        self.s12b.clone()
+    }
+    fn get_m12(&self) -> f64 { self.m21 }
+    fn get_m21(&self) -> f64 { self.m21 }
+}
+
+
+#[derive(Copy,Clone,Default)]
 pub struct ReducedLengths {
     m12b: f64,
     m0: f64,
