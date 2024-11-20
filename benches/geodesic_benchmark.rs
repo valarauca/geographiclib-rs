@@ -2,7 +2,7 @@ extern crate criterion;
 extern crate geographiclib;
 extern crate geographiclib_rs;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion, BenchmarkGroup,measurement::Measurement};
 use std::time::Duration;
 
 use geographiclib_rs::{DirectGeodesic, InverseGeodesic};
@@ -26,6 +26,11 @@ fn test_input_path() -> (&'static str, &'static str) {
     }
 }
 
+fn apply_defaults<'a,M: Measurement>(group: &mut BenchmarkGroup<'a,M>) {
+        group.sample_size(250);
+        group.sampling_mode(criterion::SamplingMode::Linear);
+}
+
 fn geodesic_direct_benchmark(c: &mut Criterion) {
     let (mode, file_path) = test_input_path();
     let file = File::open(file_path).unwrap();
@@ -41,9 +46,7 @@ fn geodesic_direct_benchmark(c: &mut Criterion) {
 
     {
         let mut group = c.benchmark_group("direct (c wrapper)");
-        if mode == TEST_MODE_FULL {
-            group.measurement_time(Duration::from_secs(30));
-        }
+        apply_defaults(&mut group);
         group.bench_function(mode, |b| {
             let geod = geographiclib::Geodesic::wgs84();
             b.iter(|| {
@@ -57,9 +60,7 @@ fn geodesic_direct_benchmark(c: &mut Criterion) {
 
     {
         let mut group = c.benchmark_group("direct (rust impl)");
-        if mode == TEST_MODE_FULL {
-            group.measurement_time(Duration::from_secs(35));
-        }
+        apply_defaults(&mut group);
         group.bench_function(mode, |b| {
             let geod = geographiclib_rs::Geodesic::wgs84();
             b.iter(|| {
@@ -88,14 +89,12 @@ fn geodesic_inverse_benchmark(c: &mut Criterion) {
 
     {
         let mut group = c.benchmark_group("inverse (c wrapper)");
-        if mode == TEST_MODE_FULL {
-            group.measurement_time(Duration::from_secs(50));
-        }
+        apply_defaults(&mut group);
         group.bench_function(mode, |b| {
             let geod = geographiclib::Geodesic::wgs84();
             b.iter(|| {
-                for (lat1, lon1, lat2, lon2) in inputs.clone() {
-                    let (_s12, _azi1, _azi2, _a12) = geod.inverse(lat1, lon1, lat2, lon2);
+                for (lat1, lon1, lat2, lon2) in &inputs {
+                    let (_s12, _azi1, _azi2, _a12) = criterion::black_box(geod.inverse(*lat1, *lon1, *lat2, *lon2));
                 }
             })
         });
@@ -104,15 +103,13 @@ fn geodesic_inverse_benchmark(c: &mut Criterion) {
 
     {
         let mut group = c.benchmark_group("inverse (rust impl)");
-        if mode == TEST_MODE_FULL {
-            group.measurement_time(Duration::from_secs(70));
-        }
+        apply_defaults(&mut group);
         group.bench_function(mode, |b| {
             let geod = geographiclib_rs::Geodesic::wgs84();
             b.iter(|| {
-                for (lat1, lon1, lat2, lon2) in inputs.clone() {
+                for (lat1, lon1, lat2, lon2) in &inputs {
                     // Do work comparable to geographiclib c-wrapper's `geod.inverse` method
-                    let (_s12, _azi1, _azi2, _a12) = geod.inverse(lat1, lon1, lat2, lon2);
+                    let (_s12, _azi1, _azi2, _a12) = criterion::black_box(geod.inverse(*lat1, *lon1, *lat2, *lon2));
                 }
             })
         });

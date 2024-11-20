@@ -11,7 +11,6 @@ use std::sync;
 #[cfg(test)]
 use approx::assert_relative_eq;
 
-use std::sync::Arc;
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
 #[derive(Clone, Debug)]
@@ -25,7 +24,7 @@ pub struct Geodesic {
     pub _b: f64,
     pub _c2: f64,
     _etol2: f64,
-    weights: Arc<Weights>,
+    weights: Box<Weights>,
 }
 
 static WGS84_GEOD: sync::OnceLock<Geodesic> = sync::OnceLock::new();
@@ -63,7 +62,7 @@ impl Geodesic {
             / 2.0;
         let _etol2 = 0.1 * TOL2 / (f.abs().max(0.001) * (1.0 - f / 2.0).min(1.0) / 2.0).sqrt();
 
-        let weights = Arc::new(Weights::new(_n));
+        let weights = Box::new(Weights::new(_n));
 
         Geodesic {
             a,
