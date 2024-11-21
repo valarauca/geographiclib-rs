@@ -215,14 +215,6 @@ impl Weights {
         c
     }
 
-    pub (in crate) fn get_c3x<'a>(&'a self) -> &'a [f64; nC3x] {
-        &self.c3x
-    }
-
-    pub (in crate) fn get_c4x<'a>(&'a self) -> &'a [f64; nC4x] {
-        &self.c4x
-    }
-
     /*
      * Special Getters
      *
@@ -256,6 +248,7 @@ impl Weights {
         }
     }
 
+    /*
     #[inline(always)]
     fn get_cXf<W: WeightCaps, C: Coeff>(&self, epsilon: f64) -> [f64;7] {
         C::get_weights::<W>(epsilon, self.third_flattening, &self.c1f_fixed, &self.c2f_fixed)
@@ -270,6 +263,7 @@ impl Weights {
     pub (in crate) fn get_c2f<W: WeightCaps>(&self, epsilon: f64) -> [f64;7] {
         self.get_cXf::<W,C2Coeff>(epsilon)
     }
+    */
 
     #[inline(always)]
     fn calc_bxf_idx<W: WeightCaps, C: Coeff, const IDX: usize>(&self, epsilon: f64) -> f64 {
@@ -321,29 +315,6 @@ impl Weights {
         sine_series_2 - sine_series_1
     }
 
-    #[inline(always)]
-    pub (in crate) fn reduced_lengths<W: WeightCaps>(
-        &self,
-        eps: f64,
-        sig12: f64,
-        ssig1: f64,
-        csig1: f64,
-        dn1: f64,
-        ssig2: f64,
-        csig2: f64,
-        dn2: f64,
-    ) -> (f64, f64) {
-
-        let (a1,a2) = (
-            self.get_a1m1f::<W>(eps),
-            self.get_a2m1f::<W>(eps)
-        );
-        let m0 = a1 - a2;
-        let j12 = m0 * sig12 + self.equation_40::<W>(eps, ssig1, csig1, ssig2, csig2, a1+1.0, a2+1.0);
-        let m12b = dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * j12;
-        (m12b, m0)
-    }
-
     /// calculates `J(σ1)-J(σ2)` or equation 40
     /// assumes the results of equation 42 are given to `a2`
     /// assumes the results of equation 17 are given to `a1`
@@ -354,57 +325,16 @@ impl Weights {
         sine_sigma_1: f64, cosine_sigma_1: f64,
         sine_sigma_2: f64, cosine_sigma_2: f64,
         a1: f64, a2: f64,
-        //mox: f64, sig
     ) -> f64 {
         // these values remain fixed for the entire calculation
         let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
         let seed2: f64 = 2.0_f64 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
-    
-    
+
         // initialized these with zero
         let j1_0 = 0.0_f64;
         let j1_1 = 0.0_f64;
         let j2_0 = 0.0_f64;
         let j2_1 = 0.0_f64;
-
-        /*
-        let b1_0 = 0.0_f64;
-        let b1_1 = 0.0_f64;
-        let b2_0 = 0.0_f64;
-        let b2_1 = 0.0_f64;
-        */
-      
-        //let b1f = self.get_c1f::<W>(epsilon);
-        //let b2f = self.get_c2f::<W>(epsilon);
-        /*
-        let mut b1f = [0.0f64;7];
-        let mut b2f = [0.0f64;7];
-        if epsilon == self.third_flattening {
-            b1f.clone_from(&self.c1f_fixed);
-            b1f.clone_from(&self.c2f_fixed);
-        } else {
-            b1f = sum_fourier_fast(epsilon, &C1F_COEFF);
-            b2f = sum_fourier_fast(epsilon, &C2F_COEFF);
-        }
-        */
-        /*
-        let b1_1 = seed1 * b1_0 - b1_1 + b1f[6];
-        let b2_1 = seed2 * b2_0 - b2_1 + b1f[6];
-        let b1_0 = seed1 * b1_1 - b1_0 + b1f[5];
-        let b2_0 = seed2 * b2_1 - b2_0 + b1f[5];
-        let b1_1 = seed1 * b1_0 - b1_1 + b1f[4];
-        let b2_1 = seed2 * b2_0 - b2_1 + b1f[4];
-        let b1_0 = seed1 * b1_1 - b1_0 + b1f[3];
-        let b2_0 = seed2 * b2_1 - b2_0 + b1f[3];
-        let b1_1 = seed1 * b1_0 - b1_1 + b1f[2];
-        let b2_1 = seed2 * b2_0 - b2_1 + b1f[2];
-        let b1_0 = seed1 * b1_1 - b1_0 + b1f[1];
-        let b2_0 = seed2 * b2_1 - b2_0 + b1f[1];
-        let b1_sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * j1_0;
-        let b1_sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * j2_0;
-        let b1 =  b1_sine_series_2 - b1_sine_series_1
-        */
-
 
         let arr_6 = a1 * self.calc_bxf_idx::<W,C1Coeff,6>(epsilon) - a2 * self.calc_bxf_idx::<W,C2Coeff,6>(epsilon);
         let j1_1 = seed1 * j1_0 - j1_1 + arr_6;
@@ -441,57 +371,10 @@ pub (in crate) trait WeightCaps {
     const CHECK_THIRD_FLATTENING: bool = false;
 }
 
-pub (in crate) struct AllWeightCaps;
-impl WeightCaps for AllWeightCaps {
-    const C1: bool = true;
-    const C1P: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    const CHECK_THIRD_FLATTENING: bool = false;
-}
-
-pub (in crate) struct CheckThirdFlattening<W: WeightCaps> {
-    _data: std::marker::PhantomData<W>,
-}
-impl<W: WeightCaps> WeightCaps for CheckThirdFlattening<W> {
-    const C1: bool = W::C1;
-    const C1P: bool = W::C1P;
-    const C2: bool = W::C2;
-    const C3: bool = W::C3;
-    const C4: bool = W::C4;
-    const CHECK_THIRD_FLATTENING: bool = true;
-}
-
 pub trait Coeff {
     const IS_C1: bool;
     const IS_C2: bool;
     const DATA: [f64; 18];
-
-    #[inline(always)]
-    fn get_weights<W: WeightCaps>(
-        epsilon: f64,
-        third_flattening: f64,
-        c1f_fixed: &[f64;7],
-        c2f_fixed: &[f64;7],
-    ) -> [f64;7] {
-        let mut ret = [f64::NAN;7];
-        if W::C1 && Self::IS_C1 {
-            if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
-                ret.clone_from(c1f_fixed);
-            } else {
-                ret = sum_fourier_fast(epsilon, &Self::DATA);      
-            }
-        }
-        if W::C2 && Self::IS_C2 {
-            if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
-                ret.clone_from(c2f_fixed);
-            } else {
-                ret = sum_fourier_fast(epsilon, &Self::DATA);      
-            }
-        }
-        ret
-    }
 
     #[inline(always)]
     fn get_weight<W: WeightCaps, const IDX: usize>(

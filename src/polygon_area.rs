@@ -105,7 +105,7 @@ impl<'a> PolygonArea<'a> {
             #[allow(non_snake_case)]
             let (_a12, s12, _salp1, _calp1, _salp2, _calp2, _m12, _M12, _M21, S12) = self
                 .geoid
-                ._gen_inverse::<PolygonAreaCap>(self.latest_lat, self.latest_lon, lat, lon, POLYGONAREA_MASK);
+                ._gen_inverse::<PolygonAreaCap>(self.latest_lat, self.latest_lon, lat, lon);
             self.perimetersum += s12;
             self.areasum += S12;
             self.crossings += PolygonArea::transit(self.latest_lon, lon);
@@ -184,7 +184,6 @@ impl<'a> PolygonArea<'a> {
                 self.latest_lon,
                 self.initial_lat,
                 self.initial_lon,
-                POLYGONAREA_MASK,
             );
         self.perimetersum += s12;
         self.areasum += S12;

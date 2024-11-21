@@ -158,6 +158,7 @@ impl<C: Caps> Caps for CheckN<C> {
     const CHECK_THIRD_FLATTENING: bool = true;
 }
 
+#[allow(dead_code)]
 pub type Standard = Latitude<Longitude<Azimuth<Distance<Empty>>>>;
 pub type PolygonAreaCap = Latitude<Longitude<Distance<Area<Empty>>>>;
 

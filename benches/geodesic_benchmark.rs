@@ -28,7 +28,7 @@ fn test_input_path() -> (&'static str, &'static str) {
 
 fn apply_defaults<'a,M: Measurement>(group: &mut BenchmarkGroup<'a,M>) {
         group.sample_size(250);
-        group.sampling_mode(criterion::SamplingMode::Linear);
+        //group.sampling_mode(criterion::SamplingMode::Linear);
 }
 
 fn geodesic_direct_benchmark(c: &mut Criterion) {
