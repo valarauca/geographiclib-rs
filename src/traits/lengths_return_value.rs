@@ -31,9 +31,27 @@ pub (in crate) trait LengthsReturnValue: Default {
     fn get_m21(&self) -> f64 { f64::NAN }
 }
 
-#[derive(Default)]
+// this type is used in testing.
+#[allow(dead_code)]
+pub (in crate) struct S12bAlone {
+    s12b: f64,
+}
+impl Default for S12bAlone {
+    #[inline(always)]
+    fn default() -> Self { Self { s12b: f64::NAN } }
+}
+impl LengthsReturnValue for S12bAlone {
+    #[inline(always)]
+    fn set_s12b(&mut self, s12b: f64) { self.s12b = s12b; }
+    #[inline(always)]
+    fn get_s12b(&self) -> f64 { self.s12b }
+}
 pub (in crate) struct M12b {
     m12b: f64,
+}
+impl Default for M12b {
+    #[inline(always)]
+    fn default() -> Self { Self { m12b: f64::NAN } }
 }
 impl LengthsReturnValue for M12b {
     #[inline(always)]
@@ -47,10 +65,18 @@ impl LengthsReturnValue for M12b {
  *
  */
 
-#[derive(Default)]
 pub (in crate) struct S12b<L: LengthsReturnValue> {
     s12b: f64,
     other: L,
+}
+impl<L: LengthsReturnValue> Default for S12b<L> {
+    #[inline(always)]
+    fn default() -> Self { 
+        Self {
+            s12b: f64::NAN,
+            other: L::default(),
+        }
+    }
 }
 impl<L: LengthsReturnValue> LengthsReturnValue for S12b<L> {
     #[inline(always)]
@@ -86,10 +112,18 @@ impl<L: LengthsReturnValue> LengthsReturnValue for S12b<L> {
     fn get_m21(&self) -> f64 { self.other.get_m21() }
 }
 
-#[derive(Default)]
 pub (in crate) struct M0<L: LengthsReturnValue> {
     m0: f64,
     other: L,
+}
+impl<L: LengthsReturnValue> Default for M0<L> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            m0: f64::NAN,
+            other: L::default(),
+        }
+    }
 }
 impl<L: LengthsReturnValue> LengthsReturnValue for M0<L> {
     #[inline(always)]
@@ -125,11 +159,20 @@ impl<L: LengthsReturnValue> LengthsReturnValue for M0<L> {
     fn get_m21(&self) -> f64 { self.other.get_m21() }
 }
 
-#[derive(Default)]
 pub (in crate) struct M21M12<L: LengthsReturnValue> {
     m21: f64,
     m12: f64,
     other: L,
+}
+impl<L: LengthsReturnValue> Default for M21M12<L> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            m21: f64::NAN,
+            m12: f64::NAN,
+            other: L::default(),
+        }
+    }
 }
 impl<L: LengthsReturnValue> LengthsReturnValue for M21M12<L> {
     #[inline(always)]

@@ -5,6 +5,7 @@ use crate::geodesic_capability as caps;
 use crate::geodesic_line;
 use crate::geomath;
 use crate::traits::{Caps,Distance,Empty,ReducedLength,GeodesicScale,Area,Azimuth,CheckN};
+use crate::traits::{LengthsReturnValue,M0,S12b,M21M12,M12b};
 #[cfg(test)]use crate::traits::{Standard,All};
 use crate::cached_weights::{Weights,C1Coeff,C2Coeff};
 use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
@@ -117,7 +118,7 @@ impl Geodesic {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn _Lengths<C: Caps>(
+    pub fn _Lengths<L: LengthsReturnValue, C: Caps>(
         &self,
         eps: f64,
         sig12: f64,
@@ -129,13 +130,8 @@ impl Geodesic {
         dn2: f64,
         cbet1: f64,
         cbet2: f64,
-    ) -> (f64, f64, f64, f64, f64) {
-
-        let mut s12b = f64::NAN;
-        let mut m12b = f64::NAN;
-        let mut m0 = f64::NAN;
-        let mut M12 = f64::NAN;
-        let mut M21 = f64::NAN;
+    ) -> L {
+        let mut ret: L = L::default();
 
         let mut A1 = 0.0;
         let mut A2 = 0.0;
@@ -153,7 +149,7 @@ impl Geodesic {
         }
         if C::DISTANCE {
             let B1 = self.weights.calc_bxf::<C,C1Coeff>(eps, ssig1, csig1, ssig2, csig2);
-            s12b = A1 * (sig12 + B1);
+            ret.set_s12b(A1 * (sig12 + B1));
             if C::REDUCEDLENGTH | C::GEODESICSCALE {
                 let B2 = self.weights.calc_bxf::<C,C2Coeff>(eps, ssig1, csig1, ssig2, csig2);
                 J12 = m0x * sig12 + (A1 * B1 - A2 * B2);
@@ -162,16 +158,16 @@ impl Geodesic {
             J12 = m0x * sig12 + self.weights.equation_40::<C>(eps, ssig1, csig1, ssig2, csig2, A1, A2);
         }
         if C::REDUCEDLENGTH {
-            m0 = m0x;
-            m12b = dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * J12;
+            ret.set_m0(m0x);
+            ret.set_m12b(dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * J12);
         }
         if C::GEODESICSCALE {
             let csig12 = csig1 * csig2 + ssig1 * ssig2;
             let t = self._ep2 * (cbet1 - cbet2) * (cbet1 + cbet2) / (dn1 + dn2);
-            M12 = csig12 + (t * ssig2 - csig2 * J12) * ssig1 / dn1;
-            M21 = csig12 - (t * ssig1 - csig1 * J12) * ssig2 / dn2;
+            ret.set_m12(csig12 + (t * ssig2 - csig2 * J12) * ssig1 / dn1);
+            ret.set_m21(csig12 - (t * ssig1 - csig1 * J12) * ssig2 / dn2);
         }
-        (s12b, m12b, m0, M12, M21)
+        ret
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -261,7 +257,7 @@ impl Geodesic {
             } else {
                 let cbet12a = cbet2 * cbet1 - sbet2 * sbet1;
                 let bet12a = sbet12a.atan2(cbet12a);
-                let res = self._Lengths::<CheckN<ReducedLength<Empty>>>(
+                let res = self._Lengths::<M0<M12b>,CheckN<ReducedLength<Empty>>>(
                     self._n,
                     PI + bet12a,
                     sbet1,
@@ -273,8 +269,8 @@ impl Geodesic {
                     f64::NAN,
                     f64::NAN
                 );
-                let m12b = res.1;
-                let m0 = res.2;
+                let m12b = res.get_m12b();
+                let m0 = res.get_m0();
                 x = -1.0 + m12b / (cbet1 * cbet2 * m0 * PI);
                 betscale = if x < -0.01 {
                     sbet12a / x
@@ -378,7 +374,7 @@ impl Geodesic {
             if calp2 == 0.0 {
                 -2.0 * self._f1 * dn1 / sbet1
             } else {
-                let res = self._Lengths::<ReducedLength<Empty>>(
+                let res = self._Lengths::<M12b, ReducedLength<Empty>>(
                     eps,
                     sig12,
                     ssig1,
@@ -390,7 +386,7 @@ impl Geodesic {
                     f64::NAN,
                     f64::NAN,
                 );
-                let m12b = res.1;
+                let m12b = res.get_m12b();
                 m12b * (self._f1 / (calp2 * cbet2))
             }
         } else {
@@ -507,7 +503,7 @@ impl Geodesic {
             csig2 = calp2 * cbet2;
 
             sig12 = ((csig1 * ssig2 - ssig1 * csig2).max(0.0)).atan2(csig1 * csig2 + ssig1 * ssig2);
-            let res = self._Lengths::<CheckN<Distance<ReducedLength<C>>>>(
+            let res = self._Lengths::<S12b<M21M12<M12b>>, CheckN<Distance<ReducedLength<C>>>>(
                 self._n,
                 sig12,
                 ssig1,
@@ -519,10 +515,10 @@ impl Geodesic {
                 cbet1,
                 cbet2,
             );
-            s12x = res.0;
-            m12x = res.1;
-            M12 = res.3;
-            M21 = res.4;
+            s12x = res.get_s12b();
+            m12x = res.get_m12b();
+            M12 = res.get_m12();
+            M21 = res.get_m21();
 
             if sig12 < 1.0 || m12x >= 0.0 {
                 if sig12 < 3.0 * TINY {
@@ -647,14 +643,14 @@ impl Geodesic {
                         || (salp1 - salp1b).abs() + (calp1 - calp1b) < TOL_B;
                 }
                 let res = if C::REDUCEDLENGTH | C::GEODESICSCALE {
-                    self._Lengths::<Distance<C>>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
+                    self._Lengths::<S12b<M21M12<M12b>>, Distance<C>>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
                 } else {
-                    self._Lengths::<C>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
+                    self._Lengths::<S12b<M21M12<M12b>>, C>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
                 };
-                s12x = res.0;
-                m12x = res.1;
-                M12 = res.3;
-                M21 = res.4;
+                s12x = res.get_s12b();
+                m12x = res.get_m12b();
+                M12 = res.get_m12();
+                M21 = res.get_m21();
 
                 m12x *= self._b;
                 s12x *= self._b;
@@ -1632,9 +1628,10 @@ mod tests {
 
     #[test]
     fn test_lengths() {
+        use crate::traits::S12bAlone;
         // Results taken from the python implementation
         let geod = Geodesic::wgs84();
-        let res1 = geod._Lengths::<ReducedLength<Empty>>(
+        let res1 = geod._Lengths::<M0<M12b>,ReducedLength<Empty>>(
             0.0008355095326524276,
             0.024682339962725352,
             -0.024679833885152578,
@@ -1646,13 +1643,13 @@ mod tests {
             0.9998487145115275,
             1.0,
         );
-        assert!(res1.0.is_nan());
-        assert_eq!(res1.1, 0.024679842274314294);
-        assert_eq!(res1.2, 0.0016717180169067588);
-        assert!(res1.3.is_nan());
-        assert!(res1.4.is_nan());
+        assert!(res1.get_s12b().is_nan());
+        assert_eq!(res1.get_m12b(), 0.024679842274314294);
+        assert_eq!(res1.get_m0(), 0.0016717180169067588);
+        assert!(res1.get_m12().is_nan());
+        assert!(res1.get_m21().is_nan());
 
-        let res2 = geod._Lengths::<ReducedLength<Empty>>(
+        let res2 = geod._Lengths::<M0<M12b>,ReducedLength<Empty>>(
             0.0008355096040059597,
             0.024682338906797385,
             -0.02467983282954624,
@@ -1664,13 +1661,13 @@ mod tests {
             0.9998487145115275,
             1.0,
         );
-        assert!(res2.0.is_nan());
-        assert_eq!(res2.1, 0.02467984121870759);
-        assert_eq!(res2.2, 0.0016717181597332804);
-        assert!(res2.3.is_nan());
-        assert!(res2.4.is_nan());
+        assert!(res1.get_s12b().is_nan());
+        assert_eq!(res2.get_m12b(), 0.02467984121870759);
+        assert_eq!(res2.get_m0(), 0.0016717181597332804);
+        assert!(res1.get_m12().is_nan());
+        assert!(res1.get_m21().is_nan());
 
-        let res3 = geod._Lengths::<Distance<Empty>>(
+        let res3 = geod._Lengths::<S12bAlone,Distance<Empty>>(
             0.0008355096040059597,
             0.024682338906797385,
             -0.02467983282954624,
@@ -1682,13 +1679,13 @@ mod tests {
             0.9998487145115275,
             1.0,
         );
-        assert_eq!(res3.0, 0.024682347295447677);
-        assert!(res3.1.is_nan());
-        assert!(res3.2.is_nan());
-        assert!(res3.3.is_nan());
-        assert!(res3.4.is_nan());
+        assert_eq!(res3.get_s12b(), 0.024682347295447677);
+        assert!(res3.get_m12b().is_nan());
+        assert!(res3.get_m0().is_nan());
+        assert!(res3.get_m12().is_nan());
+        assert!(res3.get_m21().is_nan());
 
-        let res = geod._Lengths::<Distance<Empty>>(
+        let res = geod._Lengths::<S12bAlone,Distance<Empty>>(
             0.0007122620325664751,
             1.405117407023628,
             -0.8928657853278468,
@@ -1700,11 +1697,11 @@ mod tests {
             0.8139459053827204,
             0.9811634781422108,
         );
-        assert_eq!(res.0, 1.4056304412645388);
-        assert!(res.1.is_nan());
-        assert!(res.2.is_nan());
-        assert!(res.3.is_nan());
-        assert!(res.4.is_nan());
+        assert_eq!(res.get_s12b(), 1.4056304412645388);
+        assert!(res3.get_m12b().is_nan());
+        assert!(res3.get_m0().is_nan());
+        assert!(res3.get_m12().is_nan());
+        assert!(res3.get_m21().is_nan());
     }
 
     #[test]
