@@ -275,18 +275,6 @@ impl Geodesic {
                 );
                 let m12b = res.1;
                 let m0 = res.2;
-                /*
-                let (m12b, m0) = self.weights.reduced_lengths::<CheckThirdFlattening::<AllWeightCaps>>(
-                    self._n,
-                    PI + bet12a,
-                    sbet1,
-                    -cbet1,
-                    dn1,
-                    sbet2,
-                    cbet2,
-                    dn2,
-                );
-                */
                 x = -1.0 + m12b / (cbet1 * cbet2 * m0 * PI);
                 betscale = if x < -0.01 {
                     sbet12a / x
@@ -519,7 +507,7 @@ impl Geodesic {
             csig2 = calp2 * cbet2;
 
             sig12 = ((csig1 * ssig2 - ssig1 * csig2).max(0.0)).atan2(csig1 * csig2 + ssig1 * ssig2);
-            let res = self._Lengths::<Distance<ReducedLength<C>>>(
+            let res = self._Lengths::<CheckN<Distance<ReducedLength<C>>>>(
                 self._n,
                 sig12,
                 ssig1,
