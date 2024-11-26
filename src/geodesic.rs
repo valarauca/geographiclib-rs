@@ -651,17 +651,6 @@ impl Geodesic {
                 } else {
                     self._Lengths::<C>(eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2)
                 };
-                /*
-                let lengthmask = outmask
-                    | if outmask & (caps::REDUCEDLENGTH | caps::GEODESICSCALE) != 0 {
-                        caps::DISTANCE
-                    } else {
-                        caps::EMPTY
-                    };
-                let res = self._Lengths(
-                    eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2, lengthmask,
-                );
-                */
                 s12x = res.0;
                 m12x = res.1;
                 M12 = res.3;
