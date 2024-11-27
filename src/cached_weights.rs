@@ -129,21 +129,52 @@ impl Weights {
         constant_polyval::<{GEODESIC_ORDER-1},GEODESIC_ORDER>(&self.a3x, epsilon)
     }
 
-    pub (in crate) fn c3f(&self, epsilon: f64) -> [f64;GEODESIC_ORDER] {
-        let c3x: &[f64;nC3x] = &self.c3x;
-        let mut c = [0.0_f64; GEODESIC_ORDER];
-        let mut m = 1.0_f64;
-        m *= epsilon;
-        c[1] = m * constant_polyval::<4,  nC3x      >(&c3x, epsilon);
-        m *= epsilon;
-        c[2] = m * constant_polyval::<3, {nC3x -  5}>(&c3x[SubArray::<{nC3x -  5},  5>], epsilon);
-        m *= epsilon;
-        c[3] = m * constant_polyval::<2, {nC3x -  9}>(&c3x[SubArray::<{nC3x -  9},  9>], epsilon);
-        m *= epsilon;
-        c[4] = m * constant_polyval::<1, {nC3x - 12}>(&c3x[SubArray::<{nC3x - 12}, 12>], epsilon);
-        m *= epsilon;
-        c[5] = m * constant_polyval::<0, {nC3x - 14}>(&c3x[SubArray::<{nC3x - 14}, 14>], epsilon);
-        c
+    pub (in crate) fn c4x_difference(
+        &self,
+        epsilon: f64,
+        sine_sigma_1: f64, cosine_sigma_1: f64,
+        sine_sigma_2: f64, cosine_sigma_2: f64
+    ) -> f64 {
+        let seed_1: f64 = 2.0 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+        let seed_2: f64 = 2.0 * (cosine_sigma_2 - sine_sigma_2) * (cosine_sigma_2 + sine_sigma_2);
+
+        let epsilon2: f64 = epsilon  * epsilon;
+        let epsilon3: f64 = epsilon2 * epsilon;
+        let epsilon4: f64 = epsilon3 * epsilon;
+        let epsilon5: f64 = epsilon4 * epsilon;
+        
+        let y1_1 = 0.0;
+        let y0_1 = 0.0;
+        let y1_2 = 0.0;
+        let y0_2 = 0.0;
+
+        let arr_5 = epsilon5 * constant_polyval::<0, { nC4x - 20 }>(&self.c4x[SubArray::<{nC4x - 20}, 20>], epsilon);
+        let y1_1 = seed_1 * y0_1 - y1_1 + arr_5;
+        let y1_2 = seed_2 * y0_2 - y1_2 + arr_5;
+
+        let arr_4 = epsilon4 * constant_polyval::<1, { nC4x - 18 }>(&self.c4x[SubArray::<{nC4x - 18}, 18>], epsilon);
+        let y0_1 = seed_1 * y1_1 - y0_1 + arr_4;
+        let y0_2 = seed_2 * y1_2 - y0_2 + arr_4;
+
+        let arr_3 = epsilon3 * constant_polyval::<2, { nC4x - 15 }>(&self.c4x[SubArray::<{nC4x - 15}, 15>], epsilon);
+        let y1_1 = seed_1 * y0_1 - y1_1 + arr_3;
+        let y1_2 = seed_2 * y0_2 - y1_2 + arr_3;
+
+        let arr_2 = epsilon2 * constant_polyval::<3, { nC4x - 11 }>(&self.c4x[SubArray::<{nC4x - 11}, 11>], epsilon);
+        let y0_1 = seed_1 * y1_1 - y0_1 + arr_2;
+        let y0_2 = seed_2 * y1_2 - y0_2 + arr_2;
+
+        let arr_1 = epsilon  * constant_polyval::<4, { nC4x -  6 }>(&self.c4x[SubArray::<{nC4x -  6},  6>], epsilon);
+        let y1_1 = seed_1 * y0_1 - y1_1 + arr_1;
+        let y1_2 = seed_2 * y0_2 - y1_2 + arr_1;
+
+        let arr_0 = constant_polyval::<5,nC4x>(&self.c4x, epsilon);
+        let y0_1 = seed_1 * y1_1 - y0_1 + arr_0;
+        let y0_2 = seed_2 * y1_2 - y0_2 + arr_0;
+
+        let val_1 = cosine_sigma_1 * (y0_1 - y1_1);
+        let val_2 = cosine_sigma_2 * (y0_2 - y1_2);
+        val_2 - val_1
     }
 
     // calculates the result of I₃(σ₂) - I₃(σ₁), where I₃(σ) is equation 25
@@ -194,25 +225,6 @@ impl Weights {
         let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
 
         sine_series_2 - sine_series_1
-    }
-
-
-    pub (in crate) fn c4f(&self, epsilon: f64) -> [f64;GEODESIC_ORDER] {
-        let c4x: &[f64;nC4x] = &self.c4x;
-        let mut c = [0.0_f64; GEODESIC_ORDER];
-        let mut m = 1.0_f64;
-        c[0] = m * constant_polyval::<5,   nC4x       >(&c4x, epsilon);
-        m *= epsilon;
-        c[1] = m * constant_polyval::<4, { nC4x -  6 }>(&c4x[SubArray::<{nC4x -  6},  6>], epsilon);
-        m *= epsilon;
-        c[2] = m * constant_polyval::<3, { nC4x - 11 }>(&c4x[SubArray::<{nC4x - 11}, 11>], epsilon);
-        m *= epsilon;
-        c[3] = m * constant_polyval::<2, { nC4x - 15 }>(&c4x[SubArray::<{nC4x - 15}, 15>], epsilon);
-        m *= epsilon;
-        c[4] = m * constant_polyval::<1, { nC4x - 18 }>(&c4x[SubArray::<{nC4x - 18}, 18>], epsilon);
-        m *= epsilon;
-        c[5] = m * constant_polyval::<0, { nC4x - 20 }>(&c4x[SubArray::<{nC4x - 20}, 20>], epsilon);
-        c
     }
 
     /*

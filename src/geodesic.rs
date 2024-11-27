@@ -8,7 +8,7 @@ use crate::traits::{Caps,Distance,Empty,ReducedLength,GeodesicScale,Area,Azimuth
 use crate::traits::{LengthsReturnValue,M0,S12b,M21M12,M12b};
 #[cfg(test)]use crate::traits::{Standard,All};
 use crate::cached_weights::{Weights,C1Coeff,C2Coeff};
-use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,GEODESIC_ORDER,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
+use crate::internals::constants::{TOL0,TOL1,TOL2,TINY,TOL_B,X_THRESH,ITERATIONS,MAX_ITERATIONS,WGS84_A,WGS84_F};
 use std::sync;
 
 use std::f64::consts::{FRAC_1_SQRT_2, PI};
@@ -78,11 +78,12 @@ impl Geodesic {
         }
     }
 
-    pub fn _A3f(&self, eps: f64) -> f64 {
+    pub(in crate) fn _A3f(&self, eps: f64) -> f64 {
         self.weights.a3f(eps)
     }
 
-    pub fn _C3f(&self, eps: f64, c: &mut [f64]) {
+    /*
+    pub(in crate) fn _C3f(&self, eps: f64, c: &mut [f64]) {
         let out = self.weights.c3f(eps);
         // Clippy wants us to turn this into `c.iter_mut().enumerate().take(geodesic_order + 1).skip(1)`
         // but benching (rust-1.75) shows that it would be slower.
@@ -91,14 +92,17 @@ impl Geodesic {
             c[l] = out[l];
         }
     }
+    */
 
-    pub fn _C4f(&self, eps: f64, c: &mut [f64]) {
+    /*
+    pub(in crate) fn _C4f(&self, eps: f64, c: &mut [f64]) {
         let out = self.weights.c4f(eps);
         #[allow(clippy::needless_range_loop)]
         for l in 0..GEODESIC_ORDER {
             c[l] = out[l];
         }
     }
+    */
 
     pub (in crate) fn sincosd_for_ellipsoid(&self, ang: f64) -> (f64,f64) {
         let (mut sin,mut cos) = geomath::sincosd(ang);
@@ -681,11 +685,7 @@ impl Geodesic {
                 let A4 = self.a.powi(2) * calp0 * salp0 * self._e2;
                 geomath::norm(&mut ssig1, &mut csig1);
                 geomath::norm(&mut ssig2, &mut csig2);
-                let mut C4a: [f64; GEODESIC_ORDER] = [0.0; GEODESIC_ORDER];
-                self._C4f(eps, &mut C4a);
-                let B41 = geomath::sin_cos_series(false, ssig1, csig1, &C4a);
-                let B42 = geomath::sin_cos_series(false, ssig2, csig2, &C4a);
-                S12 = A4 * (B42 - B41);
+                S12 = A4 * self.weights.c4x_difference(eps,ssig1,csig1,ssig2,csig2);
             } else {
                 S12 = 0.0;
             }
@@ -1702,45 +1702,6 @@ mod tests {
         assert!(res3.get_m0().is_nan());
         assert!(res3.get_m12().is_nan());
         assert!(res3.get_m21().is_nan());
-    }
-
-    #[test]
-    fn test_goed__C4f() {
-        let geod = Geodesic::wgs84();
-        let mut c = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        geod._C4f(0.12, &mut c);
-        assert_eq!(
-            c,
-            [
-                0.6420952961066771,
-                0.0023680700061156517,
-                9.96704067834604e-05,
-                5.778187189466089e-06,
-                3.9979026199316593e-07,
-                3.2140078103714466e-08,
-                7.0
-            ]
-        );
-    }
-
-    #[test]
-    fn test_goed__C3f() {
-        let geod = Geodesic::wgs84();
-        let mut c = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        geod._C3f(0.12, &mut c);
-
-        assert_eq!(
-            c,
-            [
-                1.0,
-                0.031839442894193756,
-                0.0009839921354137713,
-                5.0055242248766214e-05,
-                3.1656788204092044e-06,
-                2.0412e-07,
-                7.0
-            ]
-        );
     }
 
     #[test]

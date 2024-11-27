@@ -1,8 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(clippy::excessive_precision)]
 
-use crate::internals::utils::{sum_fourier_fast,constant_polyval};
-use crate::internals::constants::{C1F_COEFF,C2F_COEFF,C1PF_COEFF};
+use crate::internals::utils::{constant_polyval};
 
 // Normalize a two-vector
 pub fn norm(x: &mut f64, y: &mut f64) {
@@ -166,33 +165,6 @@ pub fn eatanhe(x: f64, es: f64) -> f64 {
     }
 }
 
-// Functions that used to be inside Geodesic
-pub fn sin_cos_series(sinp: bool, sinx: f64, cosx: f64, c: &[f64]) -> f64 {
-    let mut k = c.len();
-    let mut n: i64 = k as i64 - if sinp { 1 } else { 0 };
-    let ar: f64 = 2.0 * (cosx - sinx) * (cosx + sinx);
-    let mut y1 = 0.0;
-    let mut y0: f64 = if n & 1 != 0 {
-        k -= 1;
-        c[k]
-    } else {
-        0.0
-    };
-    n /= 2;
-    while n > 0 {
-        n -= 1;
-        k -= 1;
-        y1 = ar * y0 - y1 + c[k];
-        k -= 1;
-        y0 = ar * y1 - y0 + c[k];
-    }
-    if sinp {
-        2.0 * sinx * cosx * y0
-    } else {
-        cosx * (y0 - y1)
-    }
-}
-
 // Solve astroid equation
 pub fn astroid(x: f64, y: f64) -> f64 {
     let p = x.powi(2);
@@ -228,46 +200,10 @@ pub fn _A1m1f(eps: f64) -> f64 {
     (t + eps) / (1.0 - eps)
 }
 
-pub fn _C1f(eps: f64, c: &mut [f64], geodesic_order: usize) {
-    let out = fast_c1f(eps);
-    for l in 1..=geodesic_order {
-        c[l] = out[l];
-    }
-}
-
-#[inline]
-pub (in crate) fn fast_c1f(epsilon: f64) -> [f64;7] {
-    sum_fourier_fast(epsilon,&C1F_COEFF)
-}
-
-
-pub fn _C1pf(eps: f64, c: &mut [f64], geodesic_order: usize) {
-    let out = fast_c1pf(eps);
-    for l in 1..=geodesic_order {
-        c[l] = out[l];
-    }
-}
-
-pub (in crate) fn fast_c1pf(epsilon: f64) -> [f64;7] {
-    sum_fourier_fast(epsilon,&C1PF_COEFF)
-}
-
 pub fn _A2m1f(eps: f64) -> f64 {
     const COEFF: [f64; 5] = [-11.0, -28.0, -192.0, 0.0, 256.0];
     let t: f64 = constant_polyval::<3,5>(&COEFF, eps.powi(2)) / COEFF[4];
     (t - eps) / (1.0 + eps)
-}
-
-pub fn _C2f(eps: f64, c: &mut [f64], geodesic_order: usize) {
-    let out = fast_c2f(eps);
-    for l in 1..=geodesic_order {
-        c[l] = out[l];
-    }
-}
-
-#[inline]
-pub (in crate) fn fast_c2f(epsilon: f64) -> [f64;7] {
-    sum_fourier_fast(epsilon,&C2F_COEFF)
 }
 
 #[cfg(test)]
@@ -291,62 +227,8 @@ mod tests {
     }
 
     #[test]
-    fn test__C2f() {
-        let mut c = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        _C2f(0.12, &mut c, 6);
-        assert_eq!(
-            c,
-            vec![
-                1.0,
-                0.0601087776,
-                0.00270653103,
-                0.000180486,
-                1.4215824e-05,
-                1.22472e-06,
-                1.12266e-07
-            ]
-        )
-    }
-
-    #[test]
     fn test__A2m1f() {
         assert_eq!(_A2m1f(0.12), -0.11680607884285714);
-    }
-
-    #[test]
-    fn test__C1pf() {
-        let mut c = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        _C1pf(0.12, &mut c, 6);
-        assert_eq!(
-            c,
-            vec![
-                1.0,
-                0.059517321000000005,
-                0.004421053215,
-                0.0005074200000000001,
-                6.997613759999999e-05,
-                1.1233080000000001e-05,
-                1.8507366e-06
-            ]
-        )
-    }
-
-    #[test]
-    fn test__C1f() {
-        let mut c = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
-        _C1f(0.12, &mut c, 6);
-        assert_eq!(
-            c,
-            vec![
-                1.0,
-                -0.059676777599999994,
-                -0.000893533122,
-                -3.57084e-05,
-                -2.007504e-06,
-                -1.3607999999999999e-07,
-                -1.0205999999999999e-08
-            ]
-        )
     }
 
     #[test]
@@ -357,92 +239,6 @@ mod tests {
     #[test]
     fn test_astroid() {
         assert_eq!(astroid(21.0, 12.0), 23.44475767500982);
-    }
-
-    #[test]
-    fn test_sin_cos_series() {
-        assert_eq!(
-            sin_cos_series(
-                false,
-                -0.8928657853278468,
-                0.45032287238256896,
-                &[
-                    0.6660771734724675,
-                    1.5757752625233906e-05,
-                    3.8461688963148916e-09,
-                    1.3040960748120204e-12,
-                    5.252912023008548e-16,
-                    2.367770858285795e-19
-                ],
-            ),
-            0.29993425660538664
-        );
-
-        assert_eq!(
-            sin_cos_series(
-                false,
-                -0.8928657853278468,
-                0.45032287238256896,
-                &[0., 1., 2., 3., 4., 5.],
-            ),
-            1.8998562852254026
-        );
-        assert_eq!(
-            sin_cos_series(
-                true,
-                0.2969032234925426,
-                0.9549075745221299,
-                &[
-                    0.0,
-                    -0.0003561309485314716,
-                    -3.170731714689771e-08,
-                    -7.527972480734327e-12,
-                    -2.5133854116682488e-15,
-                    -1.0025061462383107e-18,
-                    -4.462794158625518e-22
-                ],
-            ),
-            -0.00020196665516199853
-        );
-        assert_eq!(
-            sin_cos_series(
-                true,
-                -0.8928657853278468,
-                0.45032287238256896,
-                &[
-                    0.0,
-                    -0.0003561309485314716,
-                    -3.170731714689771e-08,
-                    -7.527972480734327e-12,
-                    -2.5133854116682488e-15,
-                    -1.0025061462383107e-18,
-                    -4.462794158625518e-22
-                ],
-            ),
-            0.00028635444718997857
-        );
-
-        assert_eq!(
-            sin_cos_series(true, 0.12, 0.21, &[1.0, 2.0]),
-            0.10079999999999999
-        );
-        assert_eq!(
-            sin_cos_series(
-                true,
-                -0.024679833885152578,
-                0.9996954065111039,
-                &[
-                    0.0,
-                    -0.0008355098973052918,
-                    -1.7444619952659748e-07,
-                    -7.286557795511902e-11,
-                    -3.80472772706481e-14,
-                    -2.2251271876594078e-17,
-                    1.2789961247944744e-20
-                ],
-            ),
-            4.124513511893872e-05
-        );
     }
 
     // corresponding to tests/signtest.cpp
