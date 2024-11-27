@@ -15,16 +15,16 @@ use std::f64::consts::{FRAC_1_SQRT_2, PI};
 
 #[derive(Clone, Debug)]
 pub struct Geodesic {
-    pub a: f64,
-    pub f: f64,
-    pub _f1: f64,
-    pub _e2: f64,
-    pub _ep2: f64,
+    pub(in crate) a: f64,
+    pub(in crate) f: f64,
+    pub(in crate) _f1: f64,
+    pub(in crate) _e2: f64,
+    pub(in crate) _ep2: f64,
     _n: f64,
-    pub _b: f64,
-    pub _c2: f64,
+    pub(in crate) _b: f64,
+    pub(in crate) _c2: f64,
     _etol2: f64,
-    weights: Box<Weights>,
+    pub(in crate) weights: Box<Weights>,
 }
 
 static WGS84_GEOD: sync::OnceLock<Geodesic> = sync::OnceLock::new();
@@ -118,7 +118,7 @@ impl Geodesic {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn _Lengths<L: LengthsReturnValue, C: Caps>(
+    pub(in crate) fn _Lengths<L: LengthsReturnValue, C: Caps>(
         &self,
         eps: f64,
         sig12: f64,

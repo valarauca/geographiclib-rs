@@ -6,7 +6,7 @@ use crate::{
         polyval,
     },
     internals::{
-        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF,COEFF_SIZE},
+        constants::{GEODESIC_ORDER,C1F_COEFF,C2F_COEFF,C1PF_COEFF,COEFF_SIZE},
         subarray::{SubArray},
         utils::{constant_polyval,sum_fourier_fast},
     },
@@ -271,6 +271,39 @@ impl Weights {
     }
 
     #[inline(always)]
+    pub (in crate) fn calc_single_bxf<W: WeightCaps, C: Coeff>(
+        &self,
+        epsilon: f64,
+        sine_sigma_1: f64,
+        cosine_sigma_1: f64,
+    ) -> f64 {
+
+        let seed1: f64 = 2.0_f64 * (cosine_sigma_1 - sine_sigma_1) * (cosine_sigma_1 + sine_sigma_1);
+        let y1_0 = 0.0_f64;
+        let y1_1 = 0.0_f64;
+
+        let arr_6 = self.calc_bxf_idx::<W,C,6>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_6;
+
+        let arr_5 = self.calc_bxf_idx::<W,C,5>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_5;
+
+        let arr_4 = self.calc_bxf_idx::<W,C,4>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_4;
+
+        let arr_3 = self.calc_bxf_idx::<W,C,3>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_3;
+
+        let arr_2 = self.calc_bxf_idx::<W,C,2>(epsilon);
+        let y1_1 = seed1 * y1_0 - y1_1 + arr_2;
+
+        let arr_1 = self.calc_bxf_idx::<W,C,1>(epsilon);
+        let y1_0 = seed1 * y1_1 - y1_0 + arr_1;
+
+        2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0
+    }
+
+    #[inline(always)]
     pub (in crate) fn calc_bxf<W: WeightCaps, C: Coeff>(
         &self, epsilon: f64,
         sine_sigma_1: f64, cosine_sigma_1: f64,
@@ -311,7 +344,6 @@ impl Weights {
 
         let sine_series_1: f64 = 2.0 * sine_sigma_1 * cosine_sigma_1 * y1_0;
         let sine_series_2: f64 = 2.0 * sine_sigma_2 * cosine_sigma_2 * y2_0;
-
         sine_series_2 - sine_series_1
     }
 
@@ -374,6 +406,7 @@ pub (in crate) trait WeightCaps {
 pub trait Coeff {
     const IS_C1: bool;
     const IS_C2: bool;
+    const IS_C1P: bool;
     const DATA: [f64; 18];
 
     #[inline(always)]
@@ -384,11 +417,16 @@ pub trait Coeff {
         c2f_fixed: &[f64;7],
     ) -> f64 {
 
-        if IDX >= 7 && IDX == 0 {
+        if IDX >= 7 || IDX == 0 {
             panic!("invalid range");
         }
 
-        if W::CHECK_THIRD_FLATTENING && epsilon == third_flattening {
+        // should we not calculate this value?
+        if ! ( ( W::C1 && Self::IS_C1 ) || ( W::C2 && Self::IS_C2 ) || ( W::C1P && Self::IS_C1P ) ) {
+            return f64::NAN;
+        }
+
+        if W::CHECK_THIRD_FLATTENING && ( ! (W::C1P && Self::IS_C1P ) ) && epsilon == third_flattening {
             let arm: &[f64;7] = {
                 if W::C1 && Self::IS_C1 {
                     c1f_fixed
@@ -401,10 +439,6 @@ pub trait Coeff {
             return arm[IDX];
         };
 
-        // should we not calculate this value?
-        if ! ( ( W::C1 && Self::IS_C1 ) || ( W::C2 && Self::IS_C2 ) ) {
-            return f64::NAN;
-        }
 
         let epsilon2 = epsilon.powi(2);
 
@@ -430,6 +464,7 @@ pub struct C1Coeff;
 impl Coeff for C1Coeff {
     const IS_C1: bool = true;
     const IS_C2: bool = false;
+    const IS_C1P: bool = false;
     const DATA: [f64;18] = C1F_COEFF;
 }
 
@@ -437,6 +472,15 @@ pub struct C2Coeff;
 impl Coeff for C2Coeff {
     const IS_C1: bool = false;
     const IS_C2: bool = true;
+    const IS_C1P: bool = false;
     const DATA: [f64;18] = C2F_COEFF;
+}
+
+pub struct C1pCoeff;
+impl Coeff for C1pCoeff {
+    const IS_C1: bool = false;
+    const IS_C2: bool = false;
+    const IS_C1P: bool = true;
+    const DATA: [f64;18] = C1PF_COEFF;
 }
 
