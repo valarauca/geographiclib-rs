@@ -108,6 +108,7 @@ pub fn ang_diff(x: f64, y: f64) -> (f64, f64) {
 
 /// Compute sine and cosine of x in degrees
 pub fn sincosd(x: f64) -> (f64, f64) {
+    // todo: replace this
     let (mut r, q) = libm::remquo(x, 90.0);
 
     r = r.to_radians();

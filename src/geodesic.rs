@@ -82,28 +82,6 @@ impl Geodesic {
         self.weights.a3f(eps)
     }
 
-    /*
-    pub(in crate) fn _C3f(&self, eps: f64, c: &mut [f64]) {
-        let out = self.weights.c3f(eps);
-        // Clippy wants us to turn this into `c.iter_mut().enumerate().take(geodesic_order + 1).skip(1)`
-        // but benching (rust-1.75) shows that it would be slower.
-        #[allow(clippy::needless_range_loop)]
-        for l in 1..GEODESIC_ORDER {
-            c[l] = out[l];
-        }
-    }
-    */
-
-    /*
-    pub(in crate) fn _C4f(&self, eps: f64, c: &mut [f64]) {
-        let out = self.weights.c4f(eps);
-        #[allow(clippy::needless_range_loop)]
-        for l in 0..GEODESIC_ORDER {
-            c[l] = out[l];
-        }
-    }
-    */
-
     pub (in crate) fn sincosd_for_ellipsoid(&self, ang: f64) -> (f64,f64) {
         let (mut sin,mut cos) = geomath::sincosd(ang);
         sin *= self._f1;

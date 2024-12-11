@@ -23,13 +23,11 @@ pub struct GeodesicLine<'a>{
     _somg1: f64,
     _ssig1: f64,
     _stau1: f64,
-    _a13: f64,
     azi1: f64,
     calp1: f64,
     caps: u64,
     lat1: f64,
     lon1: f64,
-    _s13: f64,
     salp1: f64,
 }
 
@@ -93,8 +91,6 @@ impl<'a> GeodesicLine<'a> {
             _ctau1 = _csig1 * c - _ssig1 * s;
         }
 
-        let _s13 = f64::NAN;
-        let _a13 = f64::NAN;
 
         GeodesicLine {
             geod,
@@ -109,13 +105,11 @@ impl<'a> GeodesicLine<'a> {
             _somg1,
             _ssig1,
             _stau1,
-            _a13,
             azi1,
             calp1,
             caps,
             lat1,
             lon1,
-            _s13,
             salp1,
             eps,
         }
@@ -141,6 +135,8 @@ impl<'a> GeodesicLine<'a> {
         if !(arcmode || (self.caps & (caps::OUT_MASK & caps::DISTANCE_IN) != 0)) {
             return (a12, lat2, lon2, azi2, s12, m12, M12, M21, S12);
         }
+
+
 
         let mut B12 = 0.0;
         let mut AB1 = 0.0;
@@ -364,7 +360,5 @@ mod tests {
         assert_eq!(gl._csig1, 1.0);
         assert_eq!(gl._comg1, 1.0);
         assert_eq!(gl._k2, geod._ep2);
-        assert!(gl._s13.is_nan());
-        assert!(gl._a13.is_nan());
     }
 }
