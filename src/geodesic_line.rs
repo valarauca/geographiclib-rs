@@ -248,6 +248,23 @@ impl<'a> GeodesicLine<'a> {
             }
         }
         if outmask & caps::AREA != 0 {
+            S12 = area_calc(
+                &self.geod,
+                self.eps,
+                self._salp0,
+                self._calp0,
+                self.salp1,
+                self.calp1,
+                salp2,
+                calp2,
+                self._ssig1,
+                self._csig1,
+                ssig2,
+                csig2,
+                ssig12,
+                csig12,
+            );
+            /*
             let salp12: f64;
             let calp12: f64;
             if self._calp0 == 0.0 || self._salp0 == 0.0 {
@@ -266,6 +283,7 @@ impl<'a> GeodesicLine<'a> {
             let diff = self.geod.weights.c4x_difference(self.eps, self._ssig1, self._csig1, ssig2, csig2);
             let a4 = self.geod.a.powi(2) * self._calp0 * self._salp0 * self.geod._e2;
             S12 = self.geod._c2 * salp12.atan2(calp12) + a4 * diff;
+            */
         }
         a12 = if arcmode { s12_a12 } else { sig12.to_degrees() };
         (a12, lat2, lon2, azi2, s12, m12, M12, M21, S12)
@@ -314,6 +332,42 @@ impl<'a> GeodesicLine<'a> {
         }
         result
     }
+}
+
+pub(in crate) fn area_calc(
+    geod: &geodesic::Geodesic,
+    eps: f64,
+    salp0: f64,
+    calp0: f64,
+    salp1: f64,
+    calp1: f64,
+    salp2: f64,
+    calp2: f64,
+    ssig1: f64,
+    csig1: f64,
+    ssig2: f64,
+    csig2: f64,
+    ssig12: f64,
+    csig12: f64,
+) -> f64 {
+    let salp12: f64;
+    let calp12: f64;
+    if calp0 == 0.0 || salp0 == 0.0 {
+        salp12 = salp2 * calp1 - calp2 * salp1;
+        calp12 = calp2 * calp1 + salp2 * salp1;
+    } else {
+        salp12 = calp0
+            * salp0
+            * (if csig12 <= 0.0 {
+                csig1 * (1.0 - csig12) + ssig12 * ssig1
+            } else {
+                ssig12 * (csig1 * ssig12 / (1.0 + csig12) + ssig1)
+            });
+        calp12 = salp0.powi(2) + calp0.powi(2) * csig1 * csig2;
+    }
+    let diff = geod.weights.c4x_difference(eps, ssig1, csig1, ssig2, csig2);
+    let a4 = geod.a.powi(2) * calp0 * salp0 * geod._e2;
+    geod._c2 * salp12.atan2(calp12) + a4 * diff
 }
 
 #[cfg(test)]

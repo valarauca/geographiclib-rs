@@ -89,3 +89,6 @@ pub use polygon_area::Winding;
 mod internals;
 mod cached_weights;
 mod traits;
+
+pub(in crate) mod problem;
+pub(in crate) mod test_data;

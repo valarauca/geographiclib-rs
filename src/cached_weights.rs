@@ -260,23 +260,6 @@ impl Weights {
         }
     }
 
-    /*
-    #[inline(always)]
-    fn get_cXf<W: WeightCaps, C: Coeff>(&self, epsilon: f64) -> [f64;7] {
-        C::get_weights::<W>(epsilon, self.third_flattening, &self.c1f_fixed, &self.c2f_fixed)
-    }
-
-    #[inline(always)]
-    pub (in crate) fn get_c1f<W: WeightCaps>(&self, epsilon: f64) -> [f64;7] {
-        self.get_cXf::<W,C1Coeff>(epsilon)
-    }
-
-    #[inline(always)]
-    pub (in crate) fn get_c2f<W: WeightCaps>(&self, epsilon: f64) -> [f64;7] {
-        self.get_cXf::<W,C2Coeff>(epsilon)
-    }
-    */
-
     #[inline(always)]
     fn calc_bxf_idx<W: WeightCaps, C: Coeff, const IDX: usize>(&self, epsilon: f64) -> f64 {
         C::get_weight::<W,IDX>(epsilon, self.third_flattening, &self.c1f_fixed, &self.c2f_fixed)

@@ -11,6 +11,7 @@ pub trait Caps {
     const GEODESICSCALE: bool = false;
     const AREA: bool = false;
     const LONG_UNROLL: bool = false;
+    const ARC_MODE: bool = false;
 
     const C1: bool = Self::DISTANCE | Self::DISTANCE_IN | Self::REDUCEDLENGTH | Self::GEODESICSCALE;
     const C1P: bool = Self::DISTANCE_IN;
@@ -44,6 +45,7 @@ impl<C: Caps> Caps for Latitude<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct Longitude<C: Caps> {
@@ -59,6 +61,7 @@ impl<C: Caps> Caps for Longitude<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct Azimuth<C: Caps> {
@@ -74,6 +77,7 @@ impl<C: Caps> Caps for Azimuth<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct Distance<C: Caps> {
@@ -89,6 +93,7 @@ impl<C: Caps> Caps for Distance<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct DistanceIn<C: Caps> {
@@ -104,6 +109,7 @@ impl<C: Caps> Caps for DistanceIn<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct ReducedLength<C: Caps> {
@@ -119,6 +125,7 @@ impl<C: Caps> Caps for ReducedLength<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct GeodesicScale<C: Caps> {
@@ -134,6 +141,7 @@ impl<C: Caps> Caps for GeodesicScale<C> {
     const GEODESICSCALE: bool = true | C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct Area<C: Caps> {
@@ -149,6 +157,7 @@ impl<C: Caps> Caps for Area<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = true | C::AREA;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
 }
 
 pub struct CheckN<C: Caps> {
@@ -163,8 +172,44 @@ impl<C: Caps> Caps for CheckN<C> {
     const REDUCEDLENGTH: bool = C::REDUCEDLENGTH;
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
-    const CHECK_THIRD_FLATTENING: bool = true;
+    const CHECK_THIRD_FLATTENING: bool = true | C::CHECK_THIRD_FLATTENING;
     const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
+}
+
+/// Weird structure needed for some patterns
+pub struct ZeroChange<C: Caps> {
+    _data: std::marker::PhantomData<C>,
+}
+impl<C: Caps> Caps for ZeroChange<C> {
+    const LATITUDE: bool = C::LATITUDE;
+    const LONGITUDE: bool = C::LONGITUDE;
+    const AZIMUTH: bool = C::AZIMUTH;
+    const DISTANCE: bool = C::DISTANCE;
+    const DISTANCE_IN: bool = C::DISTANCE_IN;
+    const REDUCEDLENGTH: bool = C::REDUCEDLENGTH;
+    const GEODESICSCALE: bool = C::GEODESICSCALE;
+    const AREA: bool = C::AREA;
+    const CHECK_THIRD_FLATTENING: bool = C::CHECK_THIRD_FLATTENING;
+    const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = C::ARC_MODE;
+}
+
+pub struct ArcMode<C: Caps> {
+    _data: std::marker::PhantomData<C>,
+}
+impl<C: Caps> Caps for ArcMode<C> {
+    const LATITUDE: bool = C::LATITUDE;
+    const LONGITUDE: bool = C::LONGITUDE;
+    const AZIMUTH: bool = C::AZIMUTH;
+    const DISTANCE: bool = C::DISTANCE;
+    const DISTANCE_IN: bool = C::DISTANCE_IN;
+    const REDUCEDLENGTH: bool = C::REDUCEDLENGTH;
+    const GEODESICSCALE: bool = C::GEODESICSCALE;
+    const AREA: bool = C::AREA;
+    const CHECK_THIRD_FLATTENING: bool = C::CHECK_THIRD_FLATTENING;
+    const LONG_UNROLL: bool = C::LONG_UNROLL;
+    const ARC_MODE: bool = true | C::ARC_MODE;
 }
 
 pub struct LongUnroll<C: Caps> {
@@ -180,7 +225,7 @@ impl<C: Caps> Caps for LongUnroll<C> {
     const GEODESICSCALE: bool = C::GEODESICSCALE;
     const AREA: bool = C::AREA;
     const CHECK_THIRD_FLATTENING: bool = C::CHECK_THIRD_FLATTENING;
-    const LONG_UNROLL: bool = true;
+    const LONG_UNROLL: bool = true | C::LONG_UNROLL;
 }
 
 #[allow(dead_code)]
